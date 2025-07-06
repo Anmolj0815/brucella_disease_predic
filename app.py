@@ -6,37 +6,61 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
 import warnings
+import os # Import os for path joining
 
 warnings.filterwarnings('ignore')
 
 st.set_page_config(page_title="Brucellosis Prediction App", layout="wide")
 
+# Define the path to your artifacts directory
+ARTIFACTS_DIR = 'model_artifacts'
+
 # Function to load artifacts
 @st.cache_resource
 def load_artifacts():
     try:
-        df_clean = pd.read_csv('df_clean.csv')
-        with open('le_dict.pkl', 'rb') as f:
+        # Construct full paths to files inside the artifacts directory
+        df_clean_path = os.path.join(ARTIFACTS_DIR, 'df_clean.csv')
+        le_dict_path = os.path.join(ARTIFACTS_DIR, 'le_dict.pkl')
+        le_target_path = os.path.join(ARTIFACTS_DIR, 'le_target.pkl')
+        scaler_path = os.path.join(ARTIFACTS_DIR, 'scaler.pkl')
+        model_results_path = os.path.join(ARTIFACTS_DIR, 'model_results.pkl')
+        feature_names_path = os.path.join(ARTIFACTS_DIR, 'feature_names.pkl')
+
+        df_clean = pd.read_csv(df_clean_path)
+        with open(le_dict_path, 'rb') as f:
             le_dict = pickle.load(f)
-        with open('le_target.pkl', 'rb') as f:
+        with open(le_target_path, 'rb') as f:
             le_target = pickle.load(f)
-        with open('scaler.pkl', 'rb') as f:
+        with open(scaler_path, 'rb') as f:
             scaler = pickle.load(f)
-        with open('model_results.pkl', 'rb') as f:
+        with open(model_results_path, 'rb') as f:
             model_results = pickle.load(f)
-        with open('feature_names.pkl', 'rb') as f:
+        with open(feature_names_path, 'rb') as f:
             feature_names = pickle.load(f)
-        return df_clean, le_dict, le_target, scaler, model_results, feature_names
+
+        # Retrieve y_test for CM plotting from one of the model results (assuming it's consistent)
+        # Or ideally, save y_test as a separate artifact during training
+        # For robustness, we'll pick y_test from the best model's results for plotting
+        best_model_name_for_y_test = max(model_results.keys(), key=lambda x: model_results[x]['accuracy'])
+        y_test_for_streamlit_cm = model_results[best_model_name_for_y_test]['y_test']
+
+        return df_clean, le_dict, le_target, scaler, model_results, feature_names, y_test_for_streamlit_cm
     except FileNotFoundError as e:
-        st.error(f"Error loading required files. Make sure all .pkl and df_clean.csv are in the same directory. Missing file: {e}")
+        st.error(f"Error loading required files. Make sure the '{ARTIFACTS_DIR}' directory and all necessary files are present. Missing file: {e}")
+        st.stop()
+    except Exception as e:
+        st.error(f"An unexpected error occurred while loading artifacts: {e}")
         st.stop()
 
-df_clean, le_dict, le_target, scaler, model_results, feature_names = load_artifacts()
 
-# --- Prediction Function (from original script) ---
+# Load artifacts at the start of the app
+df_clean, le_dict, le_target, scaler, model_results, feature_names, y_test_from_artifacts = load_artifacts()
+
+# --- Prediction Function (from original script, adapted for Streamlit) ---
 def predict_single_case(input_dict, model_results, le_dict, le_target, scaler, feature_names, model_name=None):
     if model_name is None:
-        # Determine the best model based on accuracy (can be adjusted to AUC or F1)
+        # Determine the best model based on accuracy
         best_model_name = max(model_results.keys(), key=lambda x: model_results[x]['accuracy'])
         model_name = best_model_name
 
@@ -56,38 +80,37 @@ def predict_single_case(input_dict, model_results, le_dict, le_target, scaler, f
     for col in input_df.columns:
         if col in le_dict and input_df[col].dtype == 'object':
             try:
-                # Ensure the value exists in the encoder's classes
+                # Handle unseen labels: If a category is not in the encoder's classes, it will cause an error.
+                # For a robust app, you might want to map it to a 'default' or raise a more user-friendly error.
+                # For now, we'll check if the value is known.
                 if input_df[col].iloc[0] not in le_dict[col].classes_:
-                    st.warning(f"Input value '{input_df[col].iloc[0]}' for '{col}' not seen during training. This might lead to incorrect prediction.")
-                    # Handle unseen labels: e.g., map to a default or the most frequent, or raise an error
-                    # For now, let's just use transform which will raise an error if not handled
-                    # A robust solution might involve adding a 'default' mapping or specific imputation
-                    # For simplicity, we assume valid inputs for this app
-                    pass
+                    st.warning(f"Input value '{input_df[col].iloc[0]}' for '{col}' was not seen during model training. This might affect prediction accuracy.")
+                    # Option: Replace with mode or a default known value
+                    # input_df[col] = le_dict[col].transform([le_dict[col].classes_[0]]) # Example: map to first class
+                    # For this example, we proceed with transform, which will raise ValueError if not in classes
                 input_df[col] = le_dict[col].transform(input_df[col])
             except ValueError as e:
-                st.error(f"Error encoding column '{col}': {e}. Please check input value.")
+                st.error(f"Error encoding column '{col}': {e}. Please ensure input values are valid categories.")
                 return None
 
-    # Ensure all features are present and in the correct order
-    processed_input = {}
-    for col in feature_names:
-        if col in input_df.columns:
-            processed_input[col] = input_df[col].iloc[0]
-        else:
-            # Handle missing features in input - impute with a default (e.g., 0 or mean/mode from training)
-            # For simplicity, using 0, but a more robust solution would be preferred
-            processed_input[col] = 0 # Or use mode/median from df_clean for numerical features
-                                     # For categorical, it would be the encoded value of the mode
-    input_df_final = pd.DataFrame([processed_input])
+    # Ensure all features are present and in the correct order as per training data
+    # Create a DataFrame with all expected features, initialized to 0 or a sensible default
+    processed_input_df = pd.DataFrame(columns=feature_names)
+    processed_input_df.loc[0] = 0 # Initialize with zeros or mean/mode
+
+    # Fill in the values from the user's input
+    for col in input_df.columns:
+        if col in feature_names: # Only copy if the column is an expected feature
+            processed_input_df[col] = input_df[col].iloc[0]
 
     # Scale if needed
     if model_name in ["MLP", "SVM", "Logistic Regression", "KNN"]:
-        input_df_final = scaler.transform(input_df_final)
-
-    # Make prediction
-    pred_class = model.predict(input_df_final)[0]
-    pred_prob = model.predict_proba(input_df_final)[0]
+        processed_input_df_scaled = scaler.transform(processed_input_df)
+        pred_class = model.predict(processed_input_df_scaled)[0]
+        pred_prob = model.predict_proba(processed_input_df_scaled)[0]
+    else:
+        pred_class = model.predict(processed_input_df)[0]
+        pred_prob = model.predict_proba(processed_input_df)[0]
 
     # Convert back to original labels
     predicted_result = le_target.inverse_transform([pred_class])[0]
@@ -154,56 +177,19 @@ if page == "Model Performance":
         st.pyplot(fig_auc)
 
     st.subheader(f"Confusion Matrix for {best_model_name}")
-    y_test_pred = model_results[best_model_name]['predictions']
-    y_test_true = model_results[best_model_name]['model'].fit(scaler.transform(df_clean.drop(columns=[le_target.inverse_transform([0,1,2])[0]])), le_target.transform(df_clean[le_target.inverse_transform([0,1,2])[0]])).predict(scaler.transform(df_clean.drop(columns=[le_target.inverse_transform([0,1,2])[0]]))) # A placeholder. In a real app, y_test should be passed or re-derived.
-    # For a proper confusion matrix on test data, y_test from the split is needed.
-    # For demonstration, we will use a dummy y_true and y_pred or retrieve the actual y_test if stored.
-    # As y_test is not stored in model_results, we simulate by re-predicting on a subset or using reported values if available.
-    # For a true representation, the actual y_test from the train-test split would be ideal.
-    # Assuming y_test is available from global scope or reloaded
-    # (Note: In a real app, you'd save y_test as well or ensure consistency)
-    
-    # For this example, let's try to retrieve the actual y_test used during training from the global scope if possible
-    # or use a representative set. Given the context of the .py file, y_test is a global variable there.
-    # We will need to approximate or assume y_test is available through some means.
-    # For now, let's use the full df_clean and re-encode to get a y_clean_encoded as a proxy for the true labels.
-    
-    # Reload y_test and y_pred from saved objects if possible, or pass them from the main script.
-    # For now, we will create a dummy y_test and use the predictions from model_results for plotting.
-    # This is not ideal for true evaluation but demonstrates the plotting.
-    # A better way: save X_test, y_test during artifact generation.
-    
-    # To fix this, in your original script (Cell 10), you should store y_test:
-    # model_results[name] = { ..., 'y_test': y_test, 'y_pred': y_pred, ... }
-    
-    # Assuming y_test and y_pred are available from the original script's execution context
-    # If not, you'd need to re-run the split and use the same random_state
-    # For simplicity, using the `y_test` from the global scope of the Streamlit app.
-    
-    try:
-        y_test_original = df_clean[df_clean.columns[-1]] # Assuming target is the last column
-        y_test_encoded_for_cm = le_target.transform(y_test_original)
-        
-        # To get the actual y_test from the original split:
-        # You would need to save X_test, y_test as artifacts.
-        # For this demo, let's use the 'predictions' from model_results and
-        # assume the 'y_test' passed to plot_confusion_matrix is the one used in training.
-        
-        # Let's try to use the true y_test from the script if loaded as a global.
-        # If `y_test` from the script's Cell 7 is available globally:
-        cm = confusion_matrix(y_test, model_results[best_model_name]['predictions'])
-        
-        fig_cm, ax_cm = plt.subplots(figsize=(8, 6))
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
-                   xticklabels=le_target.classes_,
-                   yticklabels=le_target.classes_, ax=ax_cm)
-        ax_cm.set_title(f'Confusion Matrix - {best_model_name}')
-        ax_cm.set_xlabel('Predicted')
-        ax_cm.set_ylabel('Actual')
-        st.pyplot(fig_cm)
-    except NameError:
-        st.warning("Cannot display confusion matrix directly as `y_test` is not globally available in this Streamlit app context.")
-        st.info("To display the correct confusion matrix, ensure `y_test` from the train-test split is saved as an artifact and loaded here.")
+    # Use y_test_from_artifacts which was passed from load_artifacts
+    y_pred_best = model_results[best_model_name]['predictions']
+    cm = confusion_matrix(y_test_from_artifacts, y_pred_best)
+
+    fig_cm, ax_cm = plt.subplots(figsize=(8, 6))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+               xticklabels=le_target.classes_,
+               yticklabels=le_target.classes_, ax=ax_cm)
+    ax_cm.set_title(f'Confusion Matrix - {best_model_name}')
+    ax_cm.set_xlabel('Predicted')
+    ax_cm.set_ylabel('Actual')
+    st.pyplot(fig_cm)
+
 
     st.subheader(f"Feature Importance for {best_model_name} (if applicable)")
     model = model_results[best_model_name]['model']
@@ -232,47 +218,48 @@ elif page == "Make a Prediction":
 
         # Get unique values for dropdowns from df_clean
         # Ensure column names match the original data after preprocessing (stripped spaces)
-        
+
         # Age: Numerical input
         age = st.number_input("Age (Years)", min_value=0, max_value=20, value=3)
 
-        # Breed Species: Categorical (Dropdown)
-        breed_species_options = df_clean['Breed species'].unique().tolist()
+        # Breed species: Categorical (Dropdown)
+        # Using sorted list for consistent display
+        breed_species_options = sorted(df_clean['Breed species'].unique().tolist())
         breed_species = st.selectbox("Breed species", options=breed_species_options)
 
         # Sex: Categorical (Dropdown)
-        sex_options = df_clean['Sex'].unique().tolist()
+        sex_options = sorted(df_clean['Sex'].unique().tolist())
         sex = st.selectbox("Sex", options=sex_options)
 
         # Calvings: Numerical input
         calvings = st.number_input("Number of Calvings", min_value=0, max_value=15, value=1)
 
         # Abortion History: Categorical (Dropdown)
-        abortion_history_options = df_clean['Abortion History (Yes No)'].unique().tolist()
+        abortion_history_options = sorted(df_clean['Abortion History (Yes No)'].unique().tolist())
         abortion_history = st.selectbox("Abortion History", options=abortion_history_options)
 
         # Infertility Repeat breeder: Categorical (Dropdown)
-        infertility_options = df_clean['Infertility Repeat breeder(Yes No)'].unique().tolist()
+        infertility_options = sorted(df_clean['Infertility Repeat breeder(Yes No)'].unique().tolist())
         infertility = st.selectbox("Infertility / Repeat breeder", options=infertility_options)
 
         # Brucella vaccination status: Categorical (Dropdown)
-        vaccination_status_options = df_clean['Brucella vaccination status (Yes No)'].unique().tolist()
+        vaccination_status_options = sorted(df_clean['Brucella vaccination status (Yes No)'].unique().tolist())
         vaccination_status = st.selectbox("Brucella vaccination status", options=vaccination_status_options)
 
         # Sample Type: Categorical (Dropdown)
-        sample_type_options = df_clean['Sample Type(Serum Milk)'].unique().tolist()
+        sample_type_options = sorted(df_clean['Sample Type(Serum Milk)'].unique().tolist())
         sample_type = st.selectbox("Sample Type", options=sample_type_options)
 
         # Test Type: Categorical (Dropdown)
-        test_type_options = df_clean['Test Type (RBPT ELISA MRT)'].unique().tolist()
+        test_type_options = sorted(df_clean['Test Type (RBPT ELISA MRT)'].unique().tolist())
         test_type = st.selectbox("Test Type", options=test_type_options)
 
         # Retained Placenta Stillbirth: Categorical (Dropdown)
-        retained_placenta_options = df_clean['Retained Placenta Stillbirth(Yes No No Data)'].unique().tolist()
+        retained_placenta_options = sorted(df_clean['Retained Placenta Stillbirth(Yes No No Data)'].unique().tolist())
         retained_placenta = st.selectbox("Retained Placenta / Stillbirth", options=retained_placenta_options)
 
         # Proper Disposal of Aborted Fetuses: Categorical (Dropdown)
-        disposal_options = df_clean['Proper Disposal of Aborted Fetuses (Yes No)'].unique().tolist()
+        disposal_options = sorted(df_clean['Proper Disposal of Aborted Fetuses (Yes No)'].unique().tolist())
         disposal = st.selectbox("Proper Disposal of Aborted Fetuses", options=disposal_options)
 
         submitted = st.form_submit_button("Get Prediction")

@@ -3,14 +3,13 @@ import pandas as pd
 import numpy as np
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.impute import SimpleImputer
-from imblearn.over_sampling import SMOTE, RandomOverSampler
-from collections import Counter
 import pickle
 import os
 import traceback
 
-# Set page config
+# ==============================================================================
+# Page Configuration and Styling
+# ==============================================================================
 st.set_page_config(
     page_title="Brucellosis Prediction System",
     page_icon="🩺",
@@ -18,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better styling
+# Custom CSS for a more polished look
 st.markdown("""
 <style>
     .main-header {
@@ -69,10 +68,11 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# App title
+# ==============================================================================
+# Sidebar Content
+# ==============================================================================
 st.markdown('<h1 class="main-header">🩺 Brucellosis Prediction System</h1>', unsafe_allow_html=True)
 
-# Sidebar for model information
 with st.sidebar:
     st.markdown("### 📊 Model Information")
     st.info("""
@@ -88,33 +88,15 @@ with st.sidebar:
     Early detection is crucial for livestock health management.
     """)
 
-# Load model and preprocessors from artifacts
+# ==============================================================================
+# Model and Artifact Loading
+# ==============================================================================
 @st.cache_resource
 def load_model_artifacts():
-    """Load pre-trained model and preprocessors from saved files"""
+    """Load pre-trained model and preprocessors from saved files."""
     try:
-        # Try multiple possible paths for model artifacts
-        possible_paths = [
-            "./model_artifacts",
-            "./artifacts",
-            ".",
-            "/app/model_artifacts",
-            "/app/artifacts"
-        ]
-        
-        model_dir = None
-        for path in possible_paths:
-            if os.path.exists(path):
-                model_path = os.path.join(path, 'best_model.pkl')
-                if os.path.exists(model_path):
-                    model_dir = path
-                    break
-        
-        if model_dir is None:
-            st.error("❌ Model artifacts directory not found!")
-            return None, None, None, None, None
-        
-        # Define file paths
+        # Define file paths relative to the script location
+        model_dir = "." 
         model_path = os.path.join(model_dir, 'best_model.pkl')
         le_dict_path = os.path.join(model_dir, 'le_dict.pkl')
         le_target_path = os.path.join(model_dir, 'le_target.pkl')
@@ -126,20 +108,17 @@ def load_model_artifacts():
         missing_files = [f for f in required_files if not os.path.exists(f)]
         
         if missing_files:
-            st.error(f"❌ Missing required files: {missing_files}")
+            st.error(f"❌ Missing required artifact files: {', '.join(missing_files)}")
+            st.info("Please ensure 'best_model.pkl', 'le_dict.pkl', 'le_target.pkl', and 'feature_names.pkl' are in the same directory as the script.")
             return None, None, None, None, None
 
         # Load the artifacts
-        with open(model_path, 'rb') as f:
-            model = pickle.load(f)
-        with open(le_dict_path, 'rb') as f:
-            le_dict = pickle.load(f)
-        with open(le_target_path, 'rb') as f:
-            le_target = pickle.load(f)
-        with open(feature_names_path, 'rb') as f:
-            feature_names = pickle.load(f)
+        with open(model_path, 'rb') as f: model = pickle.load(f)
+        with open(le_dict_path, 'rb') as f: le_dict = pickle.load(f)
+        with open(le_target_path, 'rb') as f: le_target = pickle.load(f)
+        with open(feature_names_path, 'rb') as f: feature_names = pickle.load(f)
 
-        # Load scaler if it exists (optional)
+        # Load scaler if it exists (it's optional)
         scaler = None
         if os.path.exists(scaler_path):
             try:
@@ -147,327 +126,137 @@ def load_model_artifacts():
                     scaler = pickle.load(f)
                 st.success("✅ Scaler loaded successfully!")
             except Exception as e:
-                st.warning(f"⚠️ Could not load scaler: {e}")
+                st.warning(f"⚠️ Could not load optional scaler.pkl file: {e}")
 
         st.success("✅ Model and preprocessors loaded successfully!")
         return model, le_dict, le_target, scaler, feature_names
 
     except Exception as e:
-        st.error(f"❌ Error loading model artifacts: {str(e)}")
+        st.error(f"❌ An error occurred while loading model artifacts: {str(e)}")
         st.error(traceback.format_exc())
         return None, None, None, None, None
 
-# Load model with better error handling
-def safe_load_model():
-    """Safely load model with fallback options"""
-    try:
-        return load_model_artifacts()
-    except Exception as e:
-        st.error(f"Failed to load model: {str(e)}")
-        st.info("""
-        **Troubleshooting Steps:**
-        1. Ensure model artifacts are in the correct directory
-        2. Check file permissions
-        3. Verify all required files exist:
-           - best_model.pkl
-           - le_dict.pkl
-           - le_target.pkl
-           - feature_names.pkl
-        """)
-        return None, None, None, None, None
-
-# Load model
+# Load model and artifacts
 with st.spinner("Loading model and preprocessors..."):
-    model, le_dict, le_target, scaler, feature_names = safe_load_model()
+    model, le_dict, le_target, scaler, feature_names = load_model_artifacts()
 
-if model is None or le_dict is None or le_target is None or feature_names is None:
-    st.error("❌ Failed to load required model components!")
-    st.info("Please ensure all model artifacts are properly saved and accessible.")
+# Stop the app if loading failed
+if not all([model, le_dict, le_target, feature_names]):
+    st.error("❌ Failed to load required model components. The application cannot continue.")
     st.stop()
 
-# Debug information - show what encoders expect
-st.sidebar.markdown("### 🔍 Debug Info")
-with st.sidebar.expander("Show Label Encoder Classes"):
+# Display debug info in the sidebar
+with st.sidebar.expander("🔍 Show Label Encoder Classes"):
     for col, encoder in le_dict.items():
-        st.write(f"**{col}:** {list(encoder.classes_)}")
+        st.write(f"**{col.strip()}:** {list(encoder.classes_)}")
 
-# Main prediction interface
+# ==============================================================================
+# User Input Form
+# ==============================================================================
 st.markdown('<h2 class="sub-header">🔬 Enter Animal Details</h2>', unsafe_allow_html=True)
 
-# Create input form
 with st.form("prediction_form"):
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        age = st.number_input("Age (years)", min_value=1, max_value=20, value=4)
-        
-        # Breed Species - get actual options from encoder
-        if 'Breed species' in le_dict:
-            breed_options = list(le_dict['Breed species'].classes_)
-            breed = st.selectbox("Breed Species", breed_options, index=0)
-        else:
-            breed = st.text_input("Breed Species", value="Holstein")
-            st.warning("Using default breed options")
-
-        # Sex - use M/F format
-        if 'Sex' in le_dict:
-            sex_options = list(le_dict['Sex'].classes_)
-            sex = st.selectbox("Sex", sex_options, index=0)
-        elif ' Sex ' in le_dict:
-            sex_options = list(le_dict[' Sex '].classes_)
-            sex = st.selectbox("Sex", sex_options, index=0)
-        else:
-            sex = st.selectbox("Sex", ["F", "M"])
-
-        calvings = st.number_input("Number of Calvings", min_value=0, max_value=10, value=2)
+        age = st.number_input("Age (years)", min_value=0, max_value=30, value=5, step=1)
+        breed = st.text_input("Breed Species", value="Holstein", help="e.g., Holstein, Jersey, etc.")
+        sex = st.text_input("Sex", value="F", help="Enter 'F' for Female or 'M' for Male.")
+        calvings = st.number_input("Number of Calvings", min_value=0, max_value=15, value=2, step=1)
 
     with col2:
-        # Abortion History
-        abortion_col = None
-        for col in le_dict.keys():
-            if 'Abortion' in col:
-                abortion_col = col
-                break
-        
-        if abortion_col:
-            abortion_options = list(le_dict[abortion_col].classes_)
-            abortion_history = st.selectbox("Abortion History", abortion_options, index=0)
-        else:
-            abortion_history = st.selectbox("Abortion History", ["No", "Yes"])
-
-        # Infertility
-        infertility_col = None
-        for col in le_dict.keys():
-            if 'Infertility' in col:
-                infertility_col = col
-                break
-        
-        if infertility_col:
-            infertility_options = list(le_dict[infertility_col].classes_)
-            infertility = st.selectbox("Infertility/Repeat Breeder", infertility_options, index=0)
-        else:
-            infertility = st.selectbox("Infertility/Repeat Breeder", ["No", "Yes"])
-
-        # Vaccination Status
-        vaccination_col = None
-        for col in le_dict.keys():
-            if 'vaccination' in col.lower():
-                vaccination_col = col
-                break
-        
-        if vaccination_col:
-            vaccination_options = list(le_dict[vaccination_col].classes_)
-            vaccination = st.selectbox("Brucella Vaccination Status", vaccination_options, index=0)
-        else:
-            vaccination = st.selectbox("Brucella Vaccination Status", ["No", "Yes"])
-
-        # Sample Type
-        sample_col = None
-        for col in le_dict.keys():
-            if 'Sample' in col:
-                sample_col = col
-                break
-        
-        if sample_col:
-            sample_options = list(le_dict[sample_col].classes_)
-            sample_type = st.selectbox("Sample Type", sample_options, index=0)
-        else:
-            sample_type = st.selectbox("Sample Type", ["serum", "milk"])
+        abortion_history = st.text_input("Abortion History", value="No", help="Enter 'Yes' or 'No'.")
+        infertility = st.text_input("Infertility/Repeat Breeder", value="No", help="Enter 'Yes' or 'No'.")
+        vaccination = st.text_input("Brucella Vaccination Status", value="No", help="Enter 'Yes' or 'No'.")
+        sample_type = st.text_input("Sample Type", value="serum", help="e.g., serum, milk.")
 
     with col3:
-        # Test Type
-        test_col = None
-        for col in le_dict.keys():
-            if 'Test Type' in col:
-                test_col = col
-                break
-        
-        if test_col:
-            test_options = list(le_dict[test_col].classes_)
-            test_type = st.selectbox("Test Type", test_options, index=0)
-        else:
-            test_type = st.selectbox("Test Type", ["RBPT", "ELISA", "MRT"])
+        test_type = st.text_input("Test Type", value="RBPT", help="e.g., RBPT, ELISA, MRT.")
+        retained_placenta = st.text_input("Retained Placenta/Stillbirth", value="No", help="Enter 'Yes' or 'No'.")
+        disposal = st.text_input("Proper Disposal of Aborted Fetuses", value="No", help="Enter 'Yes' or 'No'.")
 
-        # Retained Placenta
-        retained_col = None
-        for col in le_dict.keys():
-            if 'Retained' in col or 'Placenta' in col:
-                retained_col = col
-                break
-        
-        if retained_col:
-            retained_options = list(le_dict[retained_col].classes_)
-            retained_placenta = st.selectbox("Retained Placenta/Stillbirth", retained_options, index=0)
-        else:
-            retained_placenta = st.selectbox("Retained Placenta/Stillbirth", ["No", "Yes", "No Data"])
-
-        # Proper Disposal
-        disposal_col = None
-        for col in le_dict.keys():
-            if 'Disposal' in col:
-                disposal_col = col
-                break
-        
-        if disposal_col:
-            disposal_options = list(le_dict[disposal_col].classes_)
-            disposal = st.selectbox("Proper Disposal of Aborted Fetuses", disposal_options, index=0)
-        else:
-            disposal = st.selectbox("Proper Disposal of Aborted Fetuses", ["No", "Yes"])
-
-    # Submit button
     submitted = st.form_submit_button("🔍 Predict Brucellosis Status", use_container_width=True)
 
+# ==============================================================================
+# Prediction Logic
+# ==============================================================================
 def safe_encode_value(value, encoder, column_name):
-    """Safely encode a value with proper error handling"""
-    try:
-        if isinstance(value, str):
-            value = value.strip()
-        encoded = encoder.transform([value])[0]
-        return encoded
-    except ValueError as e:
-        st.warning(f"Unknown value '{value}' for {column_name}. Available options: {list(encoder.classes_)}")
-        # Return the most common class (first class as fallback)
-        return 0
-    except Exception as e:
-        st.error(f"Error encoding {column_name}: {str(e)}")
-        return 0
-
-def create_input_dataframe(age, breed, sex, calvings, abortion_history, infertility, vaccination, sample_type, test_type, retained_placenta, disposal):
-    """Create input dataframe with exact column names from training"""
+    """Safely encode a value, trying different capitalizations before falling back."""
+    # Standardize the input by stripping whitespace
+    value_str = str(value).strip()
     
-    # Initialize with zeros for all features
-    input_data = {feature: 0 for feature in feature_names}
+    # Try common capitalizations
+    possible_values = [value_str, value_str.lower(), value_str.upper(), value_str.capitalize()]
     
-    # Map user inputs to exact column names
-    for feature in feature_names:
-        if 'Age' in feature and 'Age' == feature.strip():
-            input_data[feature] = age
-        elif 'Breed' in feature and 'species' in feature:
-            input_data[feature] = breed
-        elif 'Sex' in feature:
-            input_data[feature] = sex
-        elif 'Calvings' in feature:
-            input_data[feature] = calvings
-        elif 'Abortion' in feature and 'History' in feature:
-            input_data[feature] = abortion_history
-        elif 'Infertility' in feature:
-            input_data[feature] = infertility
-        elif 'vaccination' in feature.lower() and 'Brucella' in feature:
-            input_data[feature] = vaccination
-        elif 'Sample' in feature and 'Type' in feature:
-            input_data[feature] = sample_type
-        elif 'Test Type' in feature:
-            input_data[feature] = test_type
-        elif ('Retained' in feature or 'Placenta' in feature) and 'Stillbirth' in feature:
-            input_data[feature] = retained_placenta
-        elif 'Disposal' in feature and 'Aborted' in feature:
-            input_data[feature] = disposal
-    
-    # Create DataFrame with exact feature names in exact order
-    input_df = pd.DataFrame([input_data])
-    
-    return input_df
+    for v in possible_values:
+        try:
+            return encoder.transform([v])[0]
+        except ValueError:
+            continue # Try the next format
+            
+    st.warning(f"Unknown value '{value}' for '{column_name}'. Available options: {list(encoder.classes_)}. Using a default value.")
+    return 0 # Fallback to the most common class (encoded as 0)
 
 if submitted:
     try:
-        # Create input DataFrame with exact column names
-        input_df = create_input_dataframe(
-            age, breed, sex, calvings, abortion_history, 
-            infertility, vaccination, sample_type, test_type, 
-            retained_placenta, disposal
-        )
+        # 1. Map UI inputs to clean feature names.
+        user_input_map = {
+            'Age': age,
+            'Breed species': breed,
+            'Sex': sex,
+            'Number of Calvings': calvings,
+            'Abortion History': abortion_history,
+            'Infertility/Repeat Breeder': infertility,
+            'Brucella Vaccination Status': vaccination,
+            'Sample Type': sample_type,
+            'Test Type': test_type,
+            'Retained Placenta/Stillbirth': retained_placenta,
+            'Proper Disposal of Aborted Fetuses': disposal
+        }
         
-        st.write("**Debug: Input DataFrame columns:**")
-        st.write(list(input_df.columns))
-        st.write("**Debug: Expected feature names:**")
-        st.write(feature_names)
-        st.write("**Debug: Columns match:**")
-        st.write(list(input_df.columns) == feature_names)
-        
-        # Encode categorical features safely
+        # 2. Build the input dictionary using the exact (potentially messy) feature names from training.
+        input_data = {messy_name: user_input_map.get(messy_name.strip(), 0) for messy_name in feature_names}
+
+        # 3. Create the DataFrame with the exact column names the model expects.
+        input_df = pd.DataFrame([input_data], columns=feature_names)
+
+        # 4. Encode categorical features.
         for col in input_df.columns:
             if col in le_dict and input_df[col].dtype == 'object':
                 original_value = input_df[col].iloc[0]
                 encoded_value = safe_encode_value(original_value, le_dict[col], col)
                 input_df[col] = encoded_value
-                st.write(f"Encoded {col}: {original_value} -> {encoded_value}")
         
-        # Convert all columns to numeric
-        for col in input_df.columns:
-            if input_df[col].dtype == 'object':
-                try:
-                    input_df[col] = pd.to_numeric(input_df[col], errors='coerce')
-                except:
-                    input_df[col] = 0
-        
-        # Fill any NaN values
-        input_df = input_df.fillna(0)
-        
-        st.write("**Debug: Final input data:**")
-        st.write(input_df)
-        
-        # Handle scaling more carefully
-        if scaler is not None:
-            # Check what columns the scaler expects
-            if hasattr(scaler, 'feature_names_in_'):
-                scaler_features = list(scaler.feature_names_in_)
-                st.write(f"**Debug: Scaler expects features:** {scaler_features}")
-                
-                # Only scale if we have the exact features the scaler expects
-                if set(scaler_features).issubset(set(input_df.columns)):
-                    # Create DataFrame with only scaler features in correct order
-                    scaler_input = input_df[scaler_features]
-                    scaled_values = scaler.transform(scaler_input)
-                    
-                    # Replace scaled values back into original DataFrame
-                    for i, col in enumerate(scaler_features):
-                        input_df[col] = scaled_values[0][i]
-                    
-                    st.write("**Debug: Applied scaling successfully**")
-                else:
-                    st.warning("Scaler features don't match input features. Skipping scaling.")
-            else:
-                # Fallback: try to scale numerical columns
-                numerical_cols = []
-                for col in input_df.columns:
-                    if 'Age' in col or 'Calvings' in col:
-                        numerical_cols.append(col)
-                
-                if numerical_cols:
-                    try:
-                        # Create a subset DataFrame for scaling
-                        num_data = input_df[numerical_cols]
-                        scaled_num_data = scaler.transform(num_data)
-                        
-                        # Replace scaled values
-                        for i, col in enumerate(numerical_cols):
-                            input_df[col] = scaled_num_data[0][i]
-                        
-                        st.write(f"**Debug: Scaled numerical columns:** {numerical_cols}")
-                    except Exception as e:
-                        st.warning(f"Could not apply scaling: {str(e)}")
-        
-        # Ensure DataFrame has exactly the right columns in the right order
-        input_df = input_df[feature_names]
-        
-        st.write("**Debug: Final DataFrame shape:**")
-        st.write(input_df.shape)
-        st.write("**Debug: Final DataFrame columns:**")
-        st.write(list(input_df.columns))
+        input_df = input_df.fillna(0).astype(float)
 
-        # Make prediction
-        prediction = model.predict(input_df)[0]
+        # 5. Apply scaling if a scaler was loaded.
+        if scaler:
+            scaler_features = getattr(scaler, 'feature_names_in_', None)
+            if scaler_features is not None:
+                if set(scaler_features).issubset(input_df.columns):
+                    input_df[list(scaler_features)] = scaler.transform(input_df[list(scaler_features)])
+                else:
+                    st.warning("Scaler features don't match input. Skipping scaling.")
+            else:
+                 st.warning("Scaler has no saved feature names. Skipping scaling.")
+
+        # 6. Ensure final column order is correct before prediction.
+        input_df = input_df[feature_names]
+
+        # 7. Make the prediction.
+        prediction_encoded = model.predict(input_df)[0]
         probabilities = model.predict_proba(input_df)[0]
 
-        # Convert back to original labels
-        predicted_result = le_target.inverse_transform([prediction])[0]
-        confidence = probabilities[prediction]
+        # 8. Decode the prediction back to a human-readable label.
+        predicted_result = le_target.inverse_transform([prediction_encoded])[0]
+        confidence = probabilities[prediction_encoded]
 
-        # Display results
+        # ==============================================================================
+        # Display Results
+        # ==============================================================================
         st.markdown("---")
         st.markdown('<h2 class="sub-header">📊 Prediction Results</h2>', unsafe_allow_html=True)
 
-        # Main result box
         result_class = {
             "Positive": "positive-result",
             "Negative": "negative-result",
@@ -481,163 +270,41 @@ if submitted:
         </div>
         """, unsafe_allow_html=True)
 
-        # Detailed probabilities
-        col1, col2, col3 = st.columns(3)
-        classes = le_target.classes_
-        
-        for i, cls in enumerate(classes):
+        # Display detailed probabilities for each class
+        prob_cols = st.columns(len(le_target.classes_))
+        for i, cls_encoded in enumerate(le_target.classes_):
+            cls_label = le_target.inverse_transform([cls_encoded])[0]
             prob = probabilities[i]
-            with [col1, col2, col3][i % 3]:
+            with prob_cols[i]:
                 st.markdown(f"""
                 <div class="metric-card">
-                    <h3>{cls}</h3>
+                    <h3>{cls_label}</h3>
                     <h2>{prob:.2%}</h2>
                 </div>
                 """, unsafe_allow_html=True)
-
-        # Risk assessment
-        st.markdown("### 🚨 Risk Assessment")
         
+        # Display risk assessment based on the result
+        st.markdown("### 🚨 Risk Assessment")
         if predicted_result == "Positive":
-            st.error("""
-            **HIGH RISK** - Immediate action required:
-            - Isolate the animal immediately
-            - Consult with veterinarian
-            - Follow biosecurity protocols
-            - Test other animals in the herd
-            """)
+            st.error("**HIGH RISK:** Immediate action required. Isolate the animal, consult a veterinarian, and test the herd.")
         elif predicted_result == "Negative":
-            st.success("""
-            **LOW RISK** - Continue monitoring:
-            - Maintain regular health checks
-            - Follow vaccination schedule
-            - Monitor for symptoms
-            """)
-        else:
-            st.warning("""
-            **MODERATE RISK** - Further investigation needed:
-            - Repeat testing recommended
-            - Monitor animal closely
-            - Consider additional diagnostic tests
-            """)
-
-        # Feature importance
-        st.markdown("### 📈 Key Risk Factors")
-        try:
-            if hasattr(model, 'feature_importances_'):
-                importance_df = pd.DataFrame({
-                    'Feature': feature_names,
-                    'Importance': model.feature_importances_
-                }).sort_values('Importance', ascending=False).head(10)
-                
-                st.write("Top 10 Most Important Features:")
-                st.dataframe(importance_df)
-        except:
-            st.info("""
-            **Key Risk Factors (General):**
-            - **Abortion History** - Strong indicator
-            - **Age** - Older animals at higher risk
-            - **Vaccination Status** - Unvaccinated animals at higher risk
-            - **Test Type** - Different sensitivity levels
-            - **Sample Type** - Affects accuracy
-            """)
+            st.success("**LOW RISK:** Continue routine monitoring and maintain biosecurity protocols.")
+        else: # Suspect
+            st.warning("**MODERATE RISK:** Further investigation is needed. Re-testing is recommended.")
 
     except Exception as e:
-        st.error(f"Error making prediction: {str(e)}")
+        st.error(f"An error occurred during prediction: {str(e)}")
         st.error(traceback.format_exc())
-        st.info("Please check your input values and try again.")
+        st.info("Please check your input values and ensure they match the expected formats.")
 
+# ==============================================================================
 # Footer
+# ==============================================================================
 st.markdown("---")
 st.markdown("""
 <div class="info-box">
     <h4>🔬 About This System</h4>
-    <p>This Brucellosis prediction system uses machine learning to analyze animal health data and predict infection risk.
-    The model is trained on veterinary data and uses Extra Trees algorithm for classification.</p>
-    <p><strong>Disclaimer:</strong> This tool is for screening purposes only. Always consult with a qualified veterinarian for final diagnosis and treatment decisions.</p>
+    <p>This Brucellosis prediction system uses a machine learning model (Extra Trees Classifier) to analyze animal health data and predict infection risk. It is intended as a screening tool to aid in herd management.</p>
+    <p><strong>Disclaimer:</strong> This tool is for informational purposes only. Always consult with a qualified veterinarian for a definitive diagnosis and treatment decisions.</p>
 </div>
 """, unsafe_allow_html=True)
-
-# Batch prediction feature
-with st.expander("📁 Batch Prediction (Upload CSV)"):
-    uploaded_file = st.file_uploader("Upload CSV file for batch predictions", type="csv")
-    
-    if uploaded_file is not None:
-        try:
-            df_batch = pd.read_csv(uploaded_file)
-            st.write("Data preview:")
-            st.dataframe(df_batch.head())
-            
-            if st.button("Run Batch Predictions"):
-                with st.spinner("Processing batch predictions..."):
-                    predictions = []
-                    
-                    for index, row in df_batch.iterrows():
-                        try:
-                            # Create input DataFrame with exact column names
-                            input_df = pd.DataFrame([row.to_dict()])
-                            
-                            # Ensure all features are present and in correct order
-                            for feature in feature_names:
-                                if feature not in input_df.columns:
-                                    input_df[feature] = 0
-                            
-                            input_df = input_df[feature_names]
-                            
-                            # Encode categorical features
-                            for col in input_df.columns:
-                                if col in le_dict and input_df[col].dtype == 'object':
-                                    input_df[col] = safe_encode_value(input_df[col].iloc[0], le_dict[col], col)
-                            
-                            # Convert to numeric
-                            for col in input_df.columns:
-                                if input_df[col].dtype == 'object':
-                                    try:
-                                        input_df[col] = pd.to_numeric(input_df[col], errors='coerce')
-                                    except:
-                                        input_df[col] = 0
-                            
-                            input_df = input_df.fillna(0)
-                            
-                            # Scale if needed
-                            if scaler is not None:
-                                numerical_cols = []
-                                for col in input_df.columns:
-                                    if 'Age' in col or 'Calvings' in col:
-                                        numerical_cols.append(col)
-                                
-                                if numerical_cols:
-                                    input_df[numerical_cols] = scaler.transform(input_df[numerical_cols])
-                            
-                            # Predict
-                            pred = model.predict(input_df)[0]
-                            prob = model.predict_proba(input_df)[0].max()
-                            
-                            predictions.append({
-                                'Prediction': le_target.inverse_transform([pred])[0],
-                                'Confidence': prob
-                            })
-                            
-                        except Exception as e:
-                            st.warning(f"Error processing row {index}: {str(e)}")
-                            predictions.append({
-                                'Prediction': 'Error',
-                                'Confidence': 0.0
-                            })
-                    
-                    # Display results
-                    results_df = pd.concat([df_batch.reset_index(drop=True), pd.DataFrame(predictions)], axis=1)
-                    st.write("Batch prediction results:")
-                    st.dataframe(results_df)
-                    
-                    # Download results
-                    csv = results_df.to_csv(index=False).encode('utf-8')
-                    st.download_button(
-                        label="📥 Download Results as CSV",
-                        data=csv,
-                        file_name="brucellosis_predictions.csv",
-                        mime="text/csv"
-                    )
-                    
-        except Exception as e:
-            st.error(f"Error processing file: {str(e)}")

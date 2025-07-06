@@ -44,7 +44,7 @@ st.markdown("""
         background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
     }
     .negative-result {
-        background: linear-gradient(135deg, #4ecdc4 0%, #2dd4bf 100%);
+        background: linear_gradient(135deg, #4ecdc4 0%, #2dd4bf 100%);
     }
     .suspect-result {
         background: linear-gradient(135deg, #ffa726 0%, #ff9800 100%);
@@ -130,6 +130,9 @@ def load_model_artifacts():
             le_target = pickle.load(f)
         with open(feature_names_path, 'rb') as f:
             feature_names = pickle.load(f)
+            # IMPORTANT: Ensure feature names are stripped, as they might have been saved with spaces
+            feature_names = [f.strip() for f in feature_names]
+
 
         # Load df_clean
         df_clean = pd.read_csv(df_clean_path)
@@ -210,44 +213,44 @@ with st.form("prediction_form"):
     with col1:
         age = st.number_input("Age (years)", min_value=1, max_value=20, value=4)
 
-        # Breed Species - use df_clean for options
-        breed_options = sorted(df_clean['Breed species'].unique().tolist())
+        # Breed Species - use df_clean for options, ensuring consistency
+        breed_options = sorted([str(x).strip().title() for x in df_clean['Breed species'].unique().tolist() if pd.notna(x)])
         breed = st.selectbox("Breed Species", breed_options)
 
-        # Sex - use df_clean for options
-        sex_options = sorted(df_clean['Sex'].unique().tolist())
+        # Sex - use df_clean for options, ensuring consistency
+        sex_options = sorted([str(x).strip().title() for x in df_clean['Sex'].unique().tolist() if pd.notna(x)])
         sex = st.selectbox("Sex", sex_options)
 
         calvings = st.number_input("Number of Calvings", min_value=0, max_value=10, value=2)
 
     with col2:
-        # Abortion History - use df_clean for options
-        abortion_history_options = sorted(df_clean['Abortion History (Yes No)'].unique().tolist())
+        # Abortion History - use df_clean for options, ensuring consistency
+        abortion_history_options = sorted([str(x).strip().title() for x in df_clean['Abortion History (Yes No)'].unique().tolist() if pd.notna(x)])
         abortion_history = st.selectbox("Abortion History", abortion_history_options)
 
-        # Infertility - use df_clean for options
-        infertility_options = sorted(df_clean['Infertility Repeat breeder(Yes No)'].unique().tolist())
+        # Infertility - use df_clean for options, ensuring consistency
+        infertility_options = sorted([str(x).strip().title() for x in df_clean['Infertility Repeat breeder(Yes No)'].unique().tolist() if pd.notna(x)])
         infertility = st.selectbox("Infertility/Repeat Breeder", infertility_options)
 
-        # Vaccination Status - use df_clean for options
-        vaccination_options = sorted(df_clean['Brucella vaccination status (Yes No)'].unique().tolist())
+        # Vaccination Status - use df_clean for options, ensuring consistency
+        vaccination_options = sorted([str(x).strip().title() for x in df_clean['Brucella vaccination status (Yes No)'].unique().tolist() if pd.notna(x)])
         vaccination = st.selectbox("Brucella Vaccination Status", vaccination_options)
 
-        # Sample Type - use df_clean for options
-        sample_options = sorted(df_clean['Sample Type(Serum Milk)'].unique().tolist())
+        # Sample Type - use df_clean for options, ensuring consistency
+        sample_options = sorted([str(x).strip().title() for x in df_clean['Sample Type(Serum Milk)'].unique().tolist() if pd.notna(x)])
         sample_type = st.selectbox("Sample Type", sample_options)
 
     with col3:
-        # Test Type - use df_clean for options
-        test_options = sorted(df_clean['Test Type (RBPT ELISA MRT)'].unique().tolist())
+        # Test Type - use df_clean for options, ensuring consistency
+        test_options = sorted([str(x).strip().title() for x in df_clean['Test Type (RBPT ELISA MRT)'].unique().tolist() if pd.notna(x)])
         test_type = st.selectbox("Test Type", test_options)
 
-        # Retained Placenta - use df_clean for options
-        retained_options = sorted(df_clean['Retained Placenta Stillbirth(Yes No No Data)'].unique().tolist())
+        # Retained Placenta - use df_clean for options, ensuring consistency
+        retained_options = sorted([str(x).strip().title() for x in df_clean['Retained Placenta Stillbirth(Yes No No Data)'].unique().tolist() if pd.notna(x)])
         retained_placenta = st.selectbox("Retained Placenta/Stillbirth", retained_options)
 
-        # Proper Disposal - use df_clean for options
-        disposal_options = sorted(df_clean['Proper Disposal of Aborted Fetuses (Yes No)'].unique().tolist())
+        # Proper Disposal - use df_clean for options, ensuring consistency
+        disposal_options = sorted([str(x).strip().title() for x in df_clean['Proper Disposal of Aborted Fetuses (Yes No)'].unique().tolist() if pd.notna(x)])
         disposal = st.selectbox("Proper Disposal of Aborted Fetuses", disposal_options)
 
     # Submit button
@@ -256,11 +259,11 @@ with st.form("prediction_form"):
 if submitted:
     try:
         # Prepare input data: Use original column names (with spaces) as keys
-        # The DataFrame will be created with these keys, and then column names will be stripped.
+        # IMPORTANT: Explicitly strip keys in input_data to match potential stripped feature_names
         input_data = {
-            'Age ': age,
+            'Age': age,
             'Breed species': breed,
-            ' Sex ': sex,
+            'Sex': sex,
             'Calvings': calvings,
             'Abortion History (Yes No)': abortion_history,
             'Infertility Repeat breeder(Yes No)': infertility,
@@ -275,6 +278,7 @@ if submitted:
         input_df = pd.DataFrame([input_data])
         # IMPORTANT: Strip column names immediately to match 'feature_names' and 'le_dict' keys
         input_df.columns = input_df.columns.str.strip()
+
 
         # Encode categorical features safely using the stripped column names
         for col_name_stripped in input_df.columns:

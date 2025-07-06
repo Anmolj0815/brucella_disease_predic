@@ -8,6 +8,13 @@ from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+# --- DEBUGGING LINES START ---
+st.write(f"DEBUG: Current working directory: {os.getcwd()}")
+st.write(f"DEBUG: Does 'model_artifacts' directory exist here? {os.path.exists('model_artifacts')}")
+st.write(f"DEBUG: Does 'model_artifacts/model_results.pkl' exist? {os.path.exists('model_artifacts/model_results.pkl')}")
+# --- DEBUGGING LINES END ---
+
+
 # Set page config
 st.set_page_config(
     page_title="Brucellosis Prediction System",
@@ -89,8 +96,10 @@ def load_model_artifacts():
 
         for path in possible_paths:
             full_path = os.path.join(path, 'model_results.pkl') # Changed to model_results.pkl
+            st.write(f"DEBUG: Checking path: {full_path}") # Debugging
             if os.path.exists(full_path):
                 model_dir = path
+                st.write(f"DEBUG: Found model directory: {model_dir}") # Debugging
                 break
 
         if model_dir is None:
@@ -159,8 +168,8 @@ with st.spinner("Loading model and preprocessors..."):
     model, le_dict, le_target, scaler, feature_names, df_clean, y_test_from_artifacts = load_model_artifacts()
 
 if model is None or le_dict is None or le_target is None or feature_names is None or df_clean is None:
-    st.error("❌ Failed to load required model components or data!")
-    st.info("Please ensure all model artifacts (best_model.pkl, le_dict.pkl, le_target.pkl, feature_names.pkl, df_clean.csv, and optionally scaler.pkl) are properly saved in the 'model_artifacts' directory and accessible.")
+    st.error("❌ Failed to load required model components or data! Please see debug messages above for path issues.")
+    st.info("Please ensure all model artifacts (le_dict.pkl, le_target.pkl, feature_names.pkl, df_clean.csv, model_results.pkl, and optionally scaler.pkl) are properly saved in the 'model_artifacts' directory and accessible.")
     st.stop() # Stop the app if essential components are not loaded
 
 # Sidebar for model information

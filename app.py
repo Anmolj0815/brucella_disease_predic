@@ -196,32 +196,14 @@ def create_input_dataframe(age, breed, sex, calvings, abortion_history, infertil
     Creates a Pandas DataFrame for prediction, ensuring column names and order
     exactly match the features the model was trained on.
     """
-    # Initialize a dictionary with all expected feature names from 'feature_names'
-    # This ensures all features are present and provides a placeholder for each.
-    input_data_dict = {feature: None for feature in feature_names} 
+    input_data_dict = {} # Start with an empty dict
 
-    # Map user inputs to the exact feature names as found in feature_names.
-    # It's crucial that these keys match the strings in feature_names precisely,
-    # including any leading/trailing spaces if they exist in the original feature_names.
-    # We will iterate through feature_names to find the best match for user inputs.
-    
-    # Direct mappings based on common sense and typical feature names
-    # The actual feature names are loaded from feature_names.pkl
-    # We will try to match based on substrings to be more robust,
-    # but exact matches are preferred.
-
-    # Age and Calvings are numerical, directly assign
-    for f_name in feature_names:
-        if f_name.strip().lower() == 'age':
-            input_data_dict[f_name] = age
-        elif f_name.strip().lower() == 'calvings' or 'number of calvings' in f_name.strip().lower():
-            input_data_dict[f_name] = calvings
-        
-    # Categorical features - find the exact key from feature_names
-    # This loop ensures we use the exact key (e.g., ' Sex ') if that's what's in feature_names
-    feature_mapping = {
+    # Create a mapping from standardized user input keys to their values
+    user_inputs_standardized = {
+        'age': age,
         'breed species': breed,
         'sex': sex,
+        'number of calvings': calvings,
         'abortion history': abortion_history,
         'infertility repeat breeder': infertility,
         'brucella vaccination status': vaccination,
@@ -231,12 +213,53 @@ def create_input_dataframe(age, breed, sex, calvings, abortion_history, infertil
         'proper disposal of aborted fetuses': disposal
     }
 
+    # Iterate through the *exact* feature names loaded from the model
+    # This ensures that the keys in input_data_dict are precisely what the model expects
     for f_name in feature_names:
+        assigned = False
+        # Attempt to match the feature name (case-insensitive, space-stripped)
+        # with our standardized user input keys
         stripped_f_name = f_name.strip().lower()
-        for map_key, user_value in feature_mapping.items():
-            if map_key in stripped_f_name: # Use 'in' for partial matching, better than strict equality
-                input_data_dict[f_name] = user_value
-                break # Found a match, move to next feature_name
+
+        if stripped_f_name == 'age':
+            input_data_dict[f_name] = user_inputs_standardized['age']
+            assigned = True
+        elif stripped_f_name == 'sex':
+            input_data_dict[f_name] = user_inputs_standardized['sex']
+            assigned = True
+        elif stripped_f_name == 'breed species':
+            input_data_dict[f_name] = user_inputs_standardized['breed species']
+            assigned = True
+        elif stripped_f_name == 'calvings' or 'number of calvings' in stripped_f_name:
+            input_data_dict[f_name] = user_inputs_standardized['number of calvings']
+            assigned = True
+        elif stripped_f_name == 'abortion history' or 'abortion history (yes no)' in stripped_f_name:
+            input_data_dict[f_name] = user_inputs_standardized['abortion history']
+            assigned = True
+        elif stripped_f_name == 'infertility repeat breeder' or 'infertility repeat breeder(yes no)' in stripped_f_name:
+            input_data_dict[f_name] = user_inputs_standardized['infertility repeat breeder']
+            assigned = True
+        elif stripped_f_name == 'brucella vaccination status' or 'brucella vaccination status (yes no)' in stripped_f_name:
+            input_data_dict[f_name] = user_inputs_standardized['brucella vaccination status']
+            assigned = True
+        elif stripped_f_name == 'sample type' or 'sample type(serum milk)' in stripped_f_name:
+            input_data_dict[f_name] = user_inputs_standardized['sample type']
+            assigned = True
+        elif stripped_f_name == 'test type' or 'test type (rbpt elisa mrt)' in stripped_f_name:
+            input_data_dict[f_name] = user_inputs_standardized['test type']
+            assigned = True
+        elif stripped_f_name == 'retained placenta stillbirth' or 'retained placenta stillbirth(yes no no data)' in stripped_f_name:
+            input_data_dict[f_name] = user_inputs_standardized['retained placenta stillbirth']
+            assigned = True
+        elif stripped_f_name == 'proper disposal of aborted fetuses' or 'proper disposal of aborted fetuses (yes no)' in stripped_f_name:
+            input_data_dict[f_name] = user_inputs_standardized['proper disposal of aborted fetuses']
+            assigned = True
+        
+        # If a feature name from 'feature_names' was not explicitly mapped,
+        # assign a default value (e.g., 0 or None). This is a fallback and
+        # ideally, all feature_names should be covered by the above logic.
+        if not assigned:
+            input_data_dict[f_name] = 0 # Default for unmapped features
 
     # Create DataFrame from the dictionary.
     input_df = pd.DataFrame([input_data_dict])
@@ -498,10 +521,6 @@ with st.expander("📁 Batch Prediction (Upload CSV)"):
 
                     for index, row in df_batch_processed.iterrows():
                         try:
-                            # Convert row to dictionary to pass to create_input_dataframe logic
-                            # Note: For batch, the 'create_input_dataframe' logic is slightly different
-                            # as we already have a DataFrame row. We need to apply encoding and scaling.
-                            
                             # Create a single-row DataFrame for the current input
                             input_df_row = pd.DataFrame([row.to_dict()])
                             input_df_row = input_df_row[feature_names] # Ensure order

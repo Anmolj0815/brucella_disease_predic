@@ -4,16 +4,9 @@ import numpy as np
 import pickle
 import os
 import traceback
-from sklearn.metrics import confusion_matrix
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-# --- DEBUGGING LINES START ---
-st.write(f"DEBUG: Current working directory: {os.getcwd()}")
-st.write(f"DEBUG: Does 'model_artifacts' directory exist here? {os.path.exists('model_artifacts')}")
-st.write(f"DEBUG: Does 'model_artifacts/model_results.pkl' exist? {os.path.exists('model_artifacts/model_results.pkl')}")
-# --- DEBUGGING LINES END ---
-
+# Removed confusion_matrix and matplotlib.pyplot as they depend on y_test which won't be loaded directly
+# import matplotlib.pyplot as plt
+# import seaborn as sns
 
 # Set page config
 st.set_page_config(
@@ -67,7 +60,7 @@ st.markdown("""
         background: white;
         padding: 1.5rem;
         border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        box_shadow: 0 4px 6px rgba(0,0,0,0.1);
         text-align: center;
         margin: 1rem 0;
     }
@@ -95,19 +88,20 @@ def load_model_artifacts():
         ]
 
         for path in possible_paths:
-            full_path = os.path.join(path, 'model_results.pkl') # Changed to model_results.pkl
-            st.write(f"DEBUG: Checking path: {full_path}") # Debugging
+            # Changed to look for best_model.pkl directly
+            full_path = os.path.join(path, 'best_model.pkl')
+            # st.write(f"DEBUG: Checking path: {full_path}") # Debugging
             if os.path.exists(full_path):
                 model_dir = path
-                st.write(f"DEBUG: Found model directory: {model_dir}") # Debugging
+                # st.write(f"DEBUG: Found model directory: {model_dir}") # Debugging
                 break
 
         if model_dir is None:
-            st.error("❌ Model artifacts directory or `model_results.pkl` not found!")
-            return None, None, None, None, None, None, None
+            st.error("❌ `best_model.pkl` not found in 'model_artifacts' directory or its common deployment paths!")
+            return None, None, None, None, None, None, None # Removed y_test_from_artifacts from return
 
         # Define file paths
-        model_results_path = os.path.join(model_dir, 'model_results.pkl') # Load this first
+        best_model_path = os.path.join(model_dir, 'best_model.pkl') # Load best_model.pkl
         le_dict_path = os.path.join(model_dir, 'le_dict.pkl')
         le_target_path = os.path.join(model_dir, 'le_target.pkl')
         scaler_path = os.path.join(model_dir, 'scaler.pkl')
@@ -115,23 +109,20 @@ def load_model_artifacts():
         df_clean_path = os.path.join(model_dir, 'df_clean.csv') # Added df_clean.csv
 
         # Check if all required files exist
-        required_files = [model_results_path, le_dict_path, le_target_path, feature_names_path, df_clean_path]
+        # Updated required_files list
+        required_files = [best_model_path, le_dict_path, le_target_path, feature_names_path, df_clean_path]
         missing_files = [f for f in required_files if not os.path.exists(f)]
 
         if missing_files:
-            st.error(f"❌ Missing required files: {missing_files}")
+            st.error(f"❌ Missing required files in 'model_artifacts' directory: {missing_files}")
             return None, None, None, None, None, None, None
 
         # Load the artifacts
-        with open(model_results_path, 'rb') as f:
-            model_results_all = pickle.load(f) # Load all model results
+        with open(best_model_path, 'rb') as f:
+            model = pickle.load(f) # Load the best model directly
 
-        # Determine the best model and extract it
-        best_model_name = max(model_results_all.keys(), key=lambda x: model_results_all[x]['accuracy'])
-        model = model_results_all[best_model_name]['model']
-
-        # Extract y_test for confusion matrix plotting
-        y_test_from_artifacts = model_results_all[best_model_name]['y_test']
+        # y_test_from_artifacts will not be available this way, set to None
+        y_test_from_artifacts = None
 
         with open(le_dict_path, 'rb') as f:
             le_dict = pickle.load(f)
@@ -155,7 +146,7 @@ def load_model_artifacts():
                 st.warning(f"⚠️ Could not load scaler: {e}")
 
         st.success("✅ Model and preprocessors loaded successfully!")
-        # Return the best model, along with other artifacts and y_test
+        # Return the model, along with other artifacts and y_test (which is None now)
         return model, le_dict, le_target, scaler, feature_names, df_clean, y_test_from_artifacts
 
     except Exception as e:
@@ -165,18 +156,18 @@ def load_model_artifacts():
 
 # Load model and preprocessors
 with st.spinner("Loading model and preprocessors..."):
-    model, le_dict, le_target, scaler, feature_names, df_clean, y_test_from_artifacts = load_model_artifacts()
+    model, le_dict, le_target, scaler, feature_names, df_clean, y_test_from_artifacts = load_model_artifacts() # y_test_from_artifacts will be None
 
 if model is None or le_dict is None or le_target is None or feature_names is None or df_clean is None:
-    st.error("❌ Failed to load required model components or data! Please see debug messages above for path issues.")
-    st.info("Please ensure all model artifacts (le_dict.pkl, le_target.pkl, feature_names.pkl, df_clean.csv, model_results.pkl, and optionally scaler.pkl) are properly saved in the 'model_artifacts' directory and accessible.")
+    st.error("❌ Failed to load required model components or data! Please ensure `best_model.pkl` and other artifacts are present.")
+    st.info("Please ensure all model artifacts (best_model.pkl, le_dict.pkl, le_target.pkl, feature_names.pkl, df_clean.csv, and optionally scaler.pkl) are properly saved in the 'model_artifacts' directory and accessible.")
     st.stop() # Stop the app if essential components are not loaded
 
 # Sidebar for model information
 with st.sidebar:
     st.markdown("### 📊 Model Information")
     st.info(f"""
-    **Model:** {model.__class__.__name__} (Best Performing)
+    **Model:** {model.__class__.__name__} (Loaded from best_model.pkl)
     **Features:** {len(feature_names)} input parameters
     **Classes:** {', '.join(le_target.classes_)}
     **Status:** Ready for predictions
@@ -201,7 +192,7 @@ def safe_encode_value(value, encoder, column_name):
             st.warning(f"Unknown value '{value}' for {column_name}. Using fallback (first class).")
             # Fallback: return the encoding of the first class, or a common/default class
             return encoder.transform([encoder.classes_[0]])[0]
-        
+
         encoded = encoder.transform([value])[0]
         return encoded
     except Exception as e:
@@ -218,7 +209,7 @@ with st.form("prediction_form"):
 
     with col1:
         age = st.number_input("Age (years)", min_value=1, max_value=20, value=4)
-        
+
         # Breed Species - use df_clean for options
         breed_options = sorted(df_clean['Breed species'].unique().tolist())
         breed = st.selectbox("Breed Species", breed_options)
@@ -336,9 +327,14 @@ if submitted:
         # Detailed probabilities
         col1, col2, col3 = st.columns(3)
         classes = le_target.classes_
-        
+
         for i, cls in enumerate(classes):
-            prob = probabilities[np.where(le_target.classes_ == cls)[0][0]] # Get probability for current class
+            prob_index = np.where(le_target.classes_ == cls)[0]
+            if prob_index.size > 0: # Check if class exists in probabilities
+                prob = probabilities[prob_index[0]]
+            else:
+                prob = 0.0 # Default if class not found for some reason
+
             with [col1, col2, col3][i % 3]:
                 st.markdown(f"""
                 <div class="metric-card">
@@ -349,7 +345,7 @@ if submitted:
 
         # Risk assessment
         st.markdown("### 🚨 Risk Assessment")
-        
+
         if predicted_result == "Positive":
             st.error("""
             **HIGH RISK** - Immediate action required:
@@ -381,7 +377,7 @@ if submitted:
                     'Feature': feature_names,
                     'Importance': model.feature_importances_
                 }).sort_values('Importance', ascending=False).head(10)
-                
+
                 st.write("Top 10 Most Important Features:")
                 st.dataframe(importance_df, hide_index=True)
             else:
@@ -416,17 +412,17 @@ st.markdown("""
 # Batch prediction feature
 with st.expander("📁 Batch Prediction (Upload CSV)"):
     uploaded_file = st.file_uploader("Upload CSV file for batch predictions", type="csv")
-    
+
     if uploaded_file is not None:
         try:
             df_batch = pd.read_csv(uploaded_file)
             st.write("Data preview of uploaded file:")
             st.dataframe(df_batch.head())
-            
+
             if st.button("Run Batch Predictions"):
                 with st.spinner("Processing batch predictions..."):
                     predictions = []
-                    
+
                     # Ensure batch DataFrame columns are stripped to match expected features
                     df_batch.columns = df_batch.columns.str.strip()
 
@@ -440,7 +436,7 @@ with st.expander("📁 Batch Prediction (Upload CSV)"):
                             for col_name_stripped in input_df_batch.columns:
                                 if col_name_stripped in le_dict and input_df_batch[col_name_stripped].dtype == 'object':
                                     input_df_batch[col_name_stripped] = safe_encode_value(input_df_batch[col_name_stripped].iloc[0], le_dict[col_name_stripped], col_name_stripped)
-                            
+
                             # Ensure all features are present
                             for col in feature_names:
                                 if col not in input_df_batch.columns:
@@ -448,35 +444,35 @@ with st.expander("📁 Batch Prediction (Upload CSV)"):
 
                             # Reorder columns to match training data
                             input_df_batch = input_df_batch[feature_names]
-                            
+
                             # Scale if needed
                             if scaler is not None:
                                 numerical_cols_stripped = ['Age', 'Calvings']
                                 existing_numerical_cols = [col for col in numerical_cols_stripped if col in input_df_batch.columns]
                                 if existing_numerical_cols:
                                     input_df_batch[existing_numerical_cols] = scaler.transform(input_df_batch[existing_numerical_cols])
-                            
+
                             # Predict
                             pred = model.predict(input_df_batch)[0]
                             prob = model.predict_proba(input_df_batch)[0]
-                            
+
                             predictions.append({
                                 'Prediction': le_target.inverse_transform([pred])[0],
                                 'Confidence': prob[pred] # Confidence of the predicted class
                             })
-                            
+
                         except Exception as e:
                             st.warning(f"Error processing row {index + 1}: {str(e)}. This row will be marked as 'Error'.")
                             predictions.append({
                                 'Prediction': 'Error',
                                 'Confidence': 0.0
                             })
-                    
+
                     # Display results
                     results_df = pd.concat([df_batch.reset_index(drop=True), pd.DataFrame(predictions)], axis=1)
                     st.write("Batch prediction results:")
                     st.dataframe(results_df, use_container_width=True)
-                    
+
                     # Download results
                     csv = results_df.to_csv(index=False).encode('utf-8')
                     st.download_button(
@@ -485,6 +481,6 @@ with st.expander("📁 Batch Prediction (Upload CSV)"):
                         file_name="brucellosis_predictions.csv",
                         mime="text/csv"
                     )
-                    
+
         except Exception as e:
             st.error(f"Error processing uploaded file: {str(e)}")

@@ -335,43 +335,38 @@ def safe_encode_value(value, encoder, column_name):
 def create_input_dataframe(age, breed, sex, calvings, abortion_history, infertility, vaccination, sample_type, test_type, retained_placenta, disposal):
     """Create input dataframe with exact column names from training"""
     
-    # Create mapping for user inputs to exact column names
-    input_mapping = {}
+    # Initialize with zeros for all features
+    input_data = {feature: 0 for feature in feature_names}
     
-    # Find exact column names from feature_names
+    # Map user inputs to exact column names
     for feature in feature_names:
-        if 'Age' in feature:
-            input_mapping[feature] = age
-        elif 'Breed' in feature:
-            input_mapping[feature] = breed
+        if 'Age' in feature and 'Age' == feature.strip():
+            input_data[feature] = age
+        elif 'Breed' in feature and 'species' in feature:
+            input_data[feature] = breed
         elif 'Sex' in feature:
-            input_mapping[feature] = sex
+            input_data[feature] = sex
         elif 'Calvings' in feature:
-            input_mapping[feature] = calvings
-        elif 'Abortion' in feature:
-            input_mapping[feature] = abortion_history
+            input_data[feature] = calvings
+        elif 'Abortion' in feature and 'History' in feature:
+            input_data[feature] = abortion_history
         elif 'Infertility' in feature:
-            input_mapping[feature] = infertility
-        elif 'vaccination' in feature.lower():
-            input_mapping[feature] = vaccination
-        elif 'Sample' in feature:
-            input_mapping[feature] = sample_type
+            input_data[feature] = infertility
+        elif 'vaccination' in feature.lower() and 'Brucella' in feature:
+            input_data[feature] = vaccination
+        elif 'Sample' in feature and 'Type' in feature:
+            input_data[feature] = sample_type
         elif 'Test Type' in feature:
-            input_mapping[feature] = test_type
-        elif 'Retained' in feature or 'Placenta' in feature:
-            input_mapping[feature] = retained_placenta
-        elif 'Disposal' in feature:
-            input_mapping[feature] = disposal
+            input_data[feature] = test_type
+        elif ('Retained' in feature or 'Placenta' in feature) and 'Stillbirth' in feature:
+            input_data[feature] = retained_placenta
+        elif 'Disposal' in feature and 'Aborted' in feature:
+            input_data[feature] = disposal
     
-    # Create DataFrame with exact feature names
-    input_df = pd.DataFrame([input_mapping])
+    # Create DataFrame with exact feature names in exact order
+    input_df = pd.DataFrame([input_data])
     
-    # Ensure all features are present
-    for feature in feature_names:
-        if feature not in input_df.columns:
-            input_df[feature] = 0
-    
-    return input_df[feature_names]
+    return input_df
 
 if submitted:
     try:
@@ -386,11 +381,16 @@ if submitted:
         st.write(list(input_df.columns))
         st.write("**Debug: Expected feature names:**")
         st.write(feature_names)
+        st.write("**Debug: Columns match:**")
+        st.write(list(input_df.columns) == feature_names)
         
         # Encode categorical features safely
         for col in input_df.columns:
             if col in le_dict and input_df[col].dtype == 'object':
-                input_df[col] = safe_encode_value(input_df[col].iloc[0], le_dict[col], col)
+                original_value = input_df[col].iloc[0]
+                encoded_value = safe_encode_value(original_value, le_dict[col], col)
+                input_df[col] = encoded_value
+                st.write(f"Encoded {col}: {original_value} -> {encoded_value}")
         
         # Convert all columns to numeric
         for col in input_df.columns:
@@ -403,27 +403,61 @@ if submitted:
         # Fill any NaN values
         input_df = input_df.fillna(0)
         
-        # Scale numerical features if scaler is available
+        st.write("**Debug: Final input data:**")
+        st.write(input_df)
+        
+        # Handle scaling more carefully
         if scaler is not None:
-            # Find numerical columns that need scaling
-            numerical_cols = []
-            for col in input_df.columns:
-                if 'Age' in col or 'Calvings' in col:
-                    numerical_cols.append(col)
-            
-            if numerical_cols:
-                # Create a copy for scaling
-                input_df_scaled = input_df.copy()
-                input_df_scaled[numerical_cols] = scaler.transform(input_df_scaled[numerical_cols])
-                prediction_input = input_df_scaled
+            # Check what columns the scaler expects
+            if hasattr(scaler, 'feature_names_in_'):
+                scaler_features = list(scaler.feature_names_in_)
+                st.write(f"**Debug: Scaler expects features:** {scaler_features}")
+                
+                # Only scale if we have the exact features the scaler expects
+                if set(scaler_features).issubset(set(input_df.columns)):
+                    # Create DataFrame with only scaler features in correct order
+                    scaler_input = input_df[scaler_features]
+                    scaled_values = scaler.transform(scaler_input)
+                    
+                    # Replace scaled values back into original DataFrame
+                    for i, col in enumerate(scaler_features):
+                        input_df[col] = scaled_values[0][i]
+                    
+                    st.write("**Debug: Applied scaling successfully**")
+                else:
+                    st.warning("Scaler features don't match input features. Skipping scaling.")
             else:
-                prediction_input = input_df
-        else:
-            prediction_input = input_df
+                # Fallback: try to scale numerical columns
+                numerical_cols = []
+                for col in input_df.columns:
+                    if 'Age' in col or 'Calvings' in col:
+                        numerical_cols.append(col)
+                
+                if numerical_cols:
+                    try:
+                        # Create a subset DataFrame for scaling
+                        num_data = input_df[numerical_cols]
+                        scaled_num_data = scaler.transform(num_data)
+                        
+                        # Replace scaled values
+                        for i, col in enumerate(numerical_cols):
+                            input_df[col] = scaled_num_data[0][i]
+                        
+                        st.write(f"**Debug: Scaled numerical columns:** {numerical_cols}")
+                    except Exception as e:
+                        st.warning(f"Could not apply scaling: {str(e)}")
+        
+        # Ensure DataFrame has exactly the right columns in the right order
+        input_df = input_df[feature_names]
+        
+        st.write("**Debug: Final DataFrame shape:**")
+        st.write(input_df.shape)
+        st.write("**Debug: Final DataFrame columns:**")
+        st.write(list(input_df.columns))
 
         # Make prediction
-        prediction = model.predict(prediction_input)[0]
-        probabilities = model.predict_proba(prediction_input)[0]
+        prediction = model.predict(input_df)[0]
+        probabilities = model.predict_proba(input_df)[0]
 
         # Convert back to original labels
         predicted_result = le_target.inverse_transform([prediction])[0]

@@ -185,6 +185,12 @@ if model is None or le_dict is None or le_target is None or feature_names is Non
     st.info("Please ensure all model artifacts are properly saved and accessible.")
     st.stop()
 
+# Debug information - show what encoders expect
+st.sidebar.markdown("### 🔍 Debug Info")
+with st.sidebar.expander("Show Label Encoder Classes"):
+    for col, encoder in le_dict.items():
+        st.write(f"**{col}:** {list(encoder.classes_)}")
+
 # Main prediction interface
 st.markdown('<h2 class="sub-header">🔬 Enter Animal Details</h2>', unsafe_allow_html=True)
 
@@ -195,71 +201,116 @@ with st.form("prediction_form"):
     with col1:
         age = st.number_input("Age (years)", min_value=1, max_value=20, value=4)
         
-        # Breed Species
+        # Breed Species - get actual options from encoder
         if 'Breed species' in le_dict:
             breed_options = list(le_dict['Breed species'].classes_)
-            breed = st.selectbox("Breed Species", breed_options)
+            breed = st.selectbox("Breed Species", breed_options, index=0)
         else:
             breed = st.text_input("Breed Species", value="Holstein")
             st.warning("Using default breed options")
 
-        # Sex
+        # Sex - use M/F format
         if 'Sex' in le_dict:
             sex_options = list(le_dict['Sex'].classes_)
-            sex = st.selectbox("Sex", sex_options)
+            sex = st.selectbox("Sex", sex_options, index=0)
+        elif ' Sex ' in le_dict:
+            sex_options = list(le_dict[' Sex '].classes_)
+            sex = st.selectbox("Sex", sex_options, index=0)
         else:
-            sex = st.selectbox("Sex", ["Female", "Male"])
+            sex = st.selectbox("Sex", ["F", "M"])
 
         calvings = st.number_input("Number of Calvings", min_value=0, max_value=10, value=2)
 
     with col2:
         # Abortion History
-        if 'Abortion History (Yes No)' in le_dict:
-            abortion_options = list(le_dict['Abortion History (Yes No)'].classes_)
-            abortion_history = st.selectbox("Abortion History", abortion_options)
+        abortion_col = None
+        for col in le_dict.keys():
+            if 'Abortion' in col:
+                abortion_col = col
+                break
+        
+        if abortion_col:
+            abortion_options = list(le_dict[abortion_col].classes_)
+            abortion_history = st.selectbox("Abortion History", abortion_options, index=0)
         else:
             abortion_history = st.selectbox("Abortion History", ["No", "Yes"])
 
         # Infertility
-        if 'Infertility Repeat breeder(Yes No)' in le_dict:
-            infertility_options = list(le_dict['Infertility Repeat breeder(Yes No)'].classes_)
-            infertility = st.selectbox("Infertility/Repeat Breeder", infertility_options)
+        infertility_col = None
+        for col in le_dict.keys():
+            if 'Infertility' in col:
+                infertility_col = col
+                break
+        
+        if infertility_col:
+            infertility_options = list(le_dict[infertility_col].classes_)
+            infertility = st.selectbox("Infertility/Repeat Breeder", infertility_options, index=0)
         else:
             infertility = st.selectbox("Infertility/Repeat Breeder", ["No", "Yes"])
 
         # Vaccination Status
-        if 'Brucella vaccination status (Yes No)' in le_dict:
-            vaccination_options = list(le_dict['Brucella vaccination status (Yes No)'].classes_)
-            vaccination = st.selectbox("Brucella Vaccination Status", vaccination_options)
+        vaccination_col = None
+        for col in le_dict.keys():
+            if 'vaccination' in col.lower():
+                vaccination_col = col
+                break
+        
+        if vaccination_col:
+            vaccination_options = list(le_dict[vaccination_col].classes_)
+            vaccination = st.selectbox("Brucella Vaccination Status", vaccination_options, index=0)
         else:
             vaccination = st.selectbox("Brucella Vaccination Status", ["No", "Yes"])
 
         # Sample Type
-        if 'Sample Type(Serum Milk)' in le_dict:
-            sample_options = list(le_dict['Sample Type(Serum Milk)'].classes_)
-            sample_type = st.selectbox("Sample Type", sample_options)
+        sample_col = None
+        for col in le_dict.keys():
+            if 'Sample' in col:
+                sample_col = col
+                break
+        
+        if sample_col:
+            sample_options = list(le_dict[sample_col].classes_)
+            sample_type = st.selectbox("Sample Type", sample_options, index=0)
         else:
-            sample_type = st.selectbox("Sample Type", ["Serum", "Milk"])
+            sample_type = st.selectbox("Sample Type", ["serum", "milk"])
 
     with col3:
         # Test Type
-        if 'Test Type (RBPT ELISA MRT)' in le_dict:
-            test_options = list(le_dict['Test Type (RBPT ELISA MRT)'].classes_)
-            test_type = st.selectbox("Test Type", test_options)
+        test_col = None
+        for col in le_dict.keys():
+            if 'Test Type' in col:
+                test_col = col
+                break
+        
+        if test_col:
+            test_options = list(le_dict[test_col].classes_)
+            test_type = st.selectbox("Test Type", test_options, index=0)
         else:
             test_type = st.selectbox("Test Type", ["RBPT", "ELISA", "MRT"])
 
         # Retained Placenta
-        if 'Retained Placenta Stillbirth(Yes No No Data)' in le_dict:
-            retained_options = list(le_dict['Retained Placenta Stillbirth(Yes No No Data)'].classes_)
-            retained_placenta = st.selectbox("Retained Placenta/Stillbirth", retained_options)
+        retained_col = None
+        for col in le_dict.keys():
+            if 'Retained' in col or 'Placenta' in col:
+                retained_col = col
+                break
+        
+        if retained_col:
+            retained_options = list(le_dict[retained_col].classes_)
+            retained_placenta = st.selectbox("Retained Placenta/Stillbirth", retained_options, index=0)
         else:
             retained_placenta = st.selectbox("Retained Placenta/Stillbirth", ["No", "Yes", "No Data"])
 
         # Proper Disposal
-        if 'Proper Disposal of Aborted Fetuses (Yes No)' in le_dict:
-            disposal_options = list(le_dict['Proper Disposal of Aborted Fetuses (Yes No)'].classes_)
-            disposal = st.selectbox("Proper Disposal of Aborted Fetuses", disposal_options)
+        disposal_col = None
+        for col in le_dict.keys():
+            if 'Disposal' in col:
+                disposal_col = col
+                break
+        
+        if disposal_col:
+            disposal_options = list(le_dict[disposal_col].classes_)
+            disposal = st.selectbox("Proper Disposal of Aborted Fetuses", disposal_options, index=0)
         else:
             disposal = st.selectbox("Proper Disposal of Aborted Fetuses", ["No", "Yes"])
 
@@ -270,60 +321,109 @@ def safe_encode_value(value, encoder, column_name):
     """Safely encode a value with proper error handling"""
     try:
         if isinstance(value, str):
-            value = value.strip().title()
+            value = value.strip()
         encoded = encoder.transform([value])[0]
         return encoded
     except ValueError as e:
-        st.warning(f"Unknown value '{value}' for {column_name}. Using default encoding.")
+        st.warning(f"Unknown value '{value}' for {column_name}. Available options: {list(encoder.classes_)}")
         # Return the most common class (first class as fallback)
         return 0
     except Exception as e:
         st.error(f"Error encoding {column_name}: {str(e)}")
         return 0
 
+def create_input_dataframe(age, breed, sex, calvings, abortion_history, infertility, vaccination, sample_type, test_type, retained_placenta, disposal):
+    """Create input dataframe with exact column names from training"""
+    
+    # Create mapping for user inputs to exact column names
+    input_mapping = {}
+    
+    # Find exact column names from feature_names
+    for feature in feature_names:
+        if 'Age' in feature:
+            input_mapping[feature] = age
+        elif 'Breed' in feature:
+            input_mapping[feature] = breed
+        elif 'Sex' in feature:
+            input_mapping[feature] = sex
+        elif 'Calvings' in feature:
+            input_mapping[feature] = calvings
+        elif 'Abortion' in feature:
+            input_mapping[feature] = abortion_history
+        elif 'Infertility' in feature:
+            input_mapping[feature] = infertility
+        elif 'vaccination' in feature.lower():
+            input_mapping[feature] = vaccination
+        elif 'Sample' in feature:
+            input_mapping[feature] = sample_type
+        elif 'Test Type' in feature:
+            input_mapping[feature] = test_type
+        elif 'Retained' in feature or 'Placenta' in feature:
+            input_mapping[feature] = retained_placenta
+        elif 'Disposal' in feature:
+            input_mapping[feature] = disposal
+    
+    # Create DataFrame with exact feature names
+    input_df = pd.DataFrame([input_mapping])
+    
+    # Ensure all features are present
+    for feature in feature_names:
+        if feature not in input_df.columns:
+            input_df[feature] = 0
+    
+    return input_df[feature_names]
+
 if submitted:
     try:
-        # Prepare input data
-        input_data = {
-            'Age ': age,
-            'Breed species': breed,
-            ' Sex ': sex,
-            'Calvings': calvings,
-            'Abortion History (Yes No)': abortion_history,
-            'Infertility Repeat breeder(Yes No)': infertility,
-            'Brucella vaccination status (Yes No)': vaccination,
-            'Sample Type(Serum Milk)': sample_type,
-            'Test Type (RBPT ELISA MRT)': test_type,
-            'Retained Placenta Stillbirth(Yes No No Data)': retained_placenta,
-            'Proper Disposal of Aborted Fetuses (Yes No)': disposal
-        }
-
-        # Convert to DataFrame
-        input_df = pd.DataFrame([input_data])
-
+        # Create input DataFrame with exact column names
+        input_df = create_input_dataframe(
+            age, breed, sex, calvings, abortion_history, 
+            infertility, vaccination, sample_type, test_type, 
+            retained_placenta, disposal
+        )
+        
+        st.write("**Debug: Input DataFrame columns:**")
+        st.write(list(input_df.columns))
+        st.write("**Debug: Expected feature names:**")
+        st.write(feature_names)
+        
         # Encode categorical features safely
         for col in input_df.columns:
             if col in le_dict and input_df[col].dtype == 'object':
                 input_df[col] = safe_encode_value(input_df[col].iloc[0], le_dict[col], col)
-
-        # Ensure all features are present and in the correct order
-        for col in feature_names:
-            if col not in input_df.columns:
-                input_df[col] = 0
-
-        # Reorder columns to match training data
-        input_df = input_df[feature_names]
-
+        
+        # Convert all columns to numeric
+        for col in input_df.columns:
+            if input_df[col].dtype == 'object':
+                try:
+                    input_df[col] = pd.to_numeric(input_df[col], errors='coerce')
+                except:
+                    input_df[col] = 0
+        
+        # Fill any NaN values
+        input_df = input_df.fillna(0)
+        
         # Scale numerical features if scaler is available
         if scaler is not None:
-            numerical_cols = ['Age ', 'Calvings']
-            existing_numerical_cols = [col for col in numerical_cols if col in input_df.columns]
-            if existing_numerical_cols:
-                input_df[existing_numerical_cols] = scaler.transform(input_df[existing_numerical_cols])
+            # Find numerical columns that need scaling
+            numerical_cols = []
+            for col in input_df.columns:
+                if 'Age' in col or 'Calvings' in col:
+                    numerical_cols.append(col)
+            
+            if numerical_cols:
+                # Create a copy for scaling
+                input_df_scaled = input_df.copy()
+                input_df_scaled[numerical_cols] = scaler.transform(input_df_scaled[numerical_cols])
+                prediction_input = input_df_scaled
+            else:
+                prediction_input = input_df
+        else:
+            prediction_input = input_df
 
         # Make prediction
-        prediction = model.predict(input_df)[0]
-        probabilities = model.predict_proba(input_df)[0]
+        prediction = model.predict(prediction_input)[0]
+        probabilities = model.predict_proba(prediction_input)[0]
 
         # Convert back to original labels
         predicted_result = le_target.inverse_transform([prediction])[0]
@@ -440,27 +540,40 @@ with st.expander("📁 Batch Prediction (Upload CSV)"):
                     
                     for index, row in df_batch.iterrows():
                         try:
-                            # Prepare input
+                            # Create input DataFrame with exact column names
                             input_df = pd.DataFrame([row.to_dict()])
+                            
+                            # Ensure all features are present and in correct order
+                            for feature in feature_names:
+                                if feature not in input_df.columns:
+                                    input_df[feature] = 0
+                            
+                            input_df = input_df[feature_names]
                             
                             # Encode categorical features
                             for col in input_df.columns:
                                 if col in le_dict and input_df[col].dtype == 'object':
                                     input_df[col] = safe_encode_value(input_df[col].iloc[0], le_dict[col], col)
                             
-                            # Ensure all features are present
-                            for col in feature_names:
-                                if col not in input_df.columns:
-                                    input_df[col] = 0
+                            # Convert to numeric
+                            for col in input_df.columns:
+                                if input_df[col].dtype == 'object':
+                                    try:
+                                        input_df[col] = pd.to_numeric(input_df[col], errors='coerce')
+                                    except:
+                                        input_df[col] = 0
                             
-                            input_df = input_df[feature_names]
+                            input_df = input_df.fillna(0)
                             
                             # Scale if needed
                             if scaler is not None:
-                                numerical_cols = ['Age ', 'Calvings']
-                                existing_numerical_cols = [col for col in numerical_cols if col in input_df.columns]
-                                if existing_numerical_cols:
-                                    input_df[existing_numerical_cols] = scaler.transform(input_df[existing_numerical_cols])
+                                numerical_cols = []
+                                for col in input_df.columns:
+                                    if 'Age' in col or 'Calvings' in col:
+                                        numerical_cols.append(col)
+                                
+                                if numerical_cols:
+                                    input_df[numerical_cols] = scaler.transform(input_df[numerical_cols])
                             
                             # Predict
                             pred = model.predict(input_df)[0]

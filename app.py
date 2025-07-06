@@ -40,8 +40,8 @@ def load_artifacts():
             feature_names = pickle.load(f)
 
         # Retrieve y_test for CM plotting from one of the model results (assuming it's consistent)
-        # Or ideally, save y_test as a separate artifact during training
-        # For robustness, we'll pick y_test from the best model's results for plotting
+        # We stored y_test for each model during training, so we can pick from any model.
+        # For robustness, we'll use the y_test from the best performing model.
         best_model_name_for_y_test = max(model_results.keys(), key=lambda x: model_results[x]['accuracy'])
         y_test_for_streamlit_cm = model_results[best_model_name_for_y_test]['y_test']
 
@@ -73,37 +73,36 @@ def predict_single_case(input_dict, model_results, le_dict, le_target, scaler, f
     # Convert input to DataFrame
     input_df = pd.DataFrame([input_dict])
 
-    # Clean column names (strip spaces)
+    # Clean column names (strip spaces from input keys to match trained features)
     input_df.columns = input_df.columns.str.strip()
 
     # Encode categorical features
     for col in input_df.columns:
         if col in le_dict and input_df[col].dtype == 'object':
             try:
-                # Handle unseen labels: If a category is not in the encoder's classes, it will cause an error.
-                # For a robust app, you might want to map it to a 'default' or raise a more user-friendly error.
-                # For now, we'll check if the value is known.
+                # Handle unseen labels: If a category is not in the encoder's classes,
+                # it will cause an error during transform. Warn the user.
                 if input_df[col].iloc[0] not in le_dict[col].classes_:
                     st.warning(f"Input value '{input_df[col].iloc[0]}' for '{col}' was not seen during model training. This might affect prediction accuracy.")
-                    # Option: Replace with mode or a default known value
-                    # input_df[col] = le_dict[col].transform([le_dict[col].classes_[0]]) # Example: map to first class
-                    # For this example, we proceed with transform, which will raise ValueError if not in classes
+                    # For a robust deployment, you might want a strategy to handle unseen labels,
+                    # e.g., mapping to the most frequent class, or a special 'unknown' category.
+                    # For now, we rely on `transform` which will error if not in classes.
                 input_df[col] = le_dict[col].transform(input_df[col])
             except ValueError as e:
-                st.error(f"Error encoding column '{col}': {e}. Please ensure input values are valid categories.")
+                st.error(f"Error encoding column '{col}': {e}. Please ensure input values are valid categories from your training data.")
                 return None
 
-    # Ensure all features are present and in the correct order as per training data
-    # Create a DataFrame with all expected features, initialized to 0 or a sensible default
+    # Ensure all features are present and in the correct order as per training data's feature_names
+    # Create a DataFrame with all expected features, initialized to 0 (or a sensible default like mean/mode)
     processed_input_df = pd.DataFrame(columns=feature_names)
-    processed_input_df.loc[0] = 0 # Initialize with zeros or mean/mode
+    processed_input_df.loc[0] = 0 # Initialize with zeros or mean/mode values for numerical features
 
-    # Fill in the values from the user's input
+    # Fill in the values from the user's input, matching by stripped column names
     for col in input_df.columns:
-        if col in feature_names: # Only copy if the column is an expected feature
+        if col in feature_names: # Ensure the column name (stripped) exists in trained features
             processed_input_df[col] = input_df[col].iloc[0]
 
-    # Scale if needed
+    # Scale if needed based on the model type
     if model_name in ["MLP", "SVM", "Logistic Regression", "KNN"]:
         processed_input_df_scaled = scaler.transform(processed_input_df)
         pred_class = model.predict(processed_input_df_scaled)[0]
@@ -112,7 +111,7 @@ def predict_single_case(input_dict, model_results, le_dict, le_target, scaler, f
         pred_class = model.predict(processed_input_df)[0]
         pred_prob = model.predict_proba(processed_input_df)[0]
 
-    # Convert back to original labels
+    # Convert back to original labels using le_target
     predicted_result = le_target.inverse_transform([pred_class])[0]
     confidence = pred_prob[pred_class]
 
@@ -177,7 +176,7 @@ if page == "Model Performance":
         st.pyplot(fig_auc)
 
     st.subheader(f"Confusion Matrix for {best_model_name}")
-    # Use y_test_from_artifacts which was passed from load_artifacts
+    # Use y_test_from_artifacts which was loaded from the model_results.pkl
     y_pred_best = model_results[best_model_name]['predictions']
     cm = confusion_matrix(y_test_from_artifacts, y_pred_best)
 
@@ -216,8 +215,10 @@ elif page == "Make a Prediction":
     with st.form("prediction_form"):
         st.subheader("Animal Information")
 
-        # Get unique values for dropdowns from df_clean
-        # Ensure column names match the original data after preprocessing (stripped spaces)
+        # Get unique values for dropdowns from df_clean (which has stripped column names)
+        # Ensure column names here match the **stripped** column names from df_clean
+        # The input_data dictionary will then use the original names with spaces,
+        # which are stripped by the predict_single_case function.
 
         # Age: Numerical input
         age = st.number_input("Age (Years)", min_value=0, max_value=20, value=3)
@@ -265,8 +266,10 @@ elif page == "Make a Prediction":
         submitted = st.form_submit_button("Get Prediction")
 
         if submitted:
+            # IMPORTANT: The keys in this dictionary must match the ORIGINAL column names
+            # from your CSV, including spaces, as `predict_single_case` will strip them.
             input_data = {
-                'Age ': age, # Ensure column names exactly match those used in training, including spaces
+                'Age ': age,
                 'Breed species': breed_species,
                 ' Sex ': sex,
                 'Calvings': calvings,

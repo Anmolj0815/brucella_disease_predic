@@ -12,14 +12,27 @@ from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 import json
-from passlib.hash import bcrypt # <--- NEW: Import bcrypt for hashing
+from passlib.hash import bcrypt # Import bcrypt for hashing
 
 warnings.filterwarnings('ignore')
 
 # --- CONFIGURATION ---
 MODEL_ARTIFACTS_DIR = 'model_artifacts/'
-# Removed IMAGE_PATH line as you requested to remove the image
-USERS_FILE = MODEL_ARTIFACTS_DIR + 'users.json'
+IMAGE_PATH = MODEL_ARTIFACTS_DIR + 'veterinary.jpg' # Path to your veterinary image
+USERS_FILE = MODEL_ARTIARTIFACTS_DIR + 'users.json' # Path to your user credentials file
+
+# --- HTML/CSS for Dotted Background (no image download needed) ---
+# This CSS creates a subtle dotted pattern.
+# We'll inject this into the app's HTML.
+DOTTED_BACKGROUND_CSS = """
+<style>
+body {
+    background-color: #f0f2f6; /* Light gray background */
+    background-image: radial-gradient(#d3d3d3 1px, transparent 1px);
+    background-size: 20px 20px; /* Adjust dot size and spacing */
+}
+</style>
+"""
 
 # --- LOAD USER CREDENTIALS ---
 users = {}
@@ -28,7 +41,7 @@ try:
         users = json.load(f)
     st.sidebar.success("🔒 User credentials loaded successfully!")
 except FileNotFoundError:
-    st.sidebar.error(f"❌ User credentials file not found at '{USERS_FILE}'. Please create it.")
+    st.sidebar.error(f"❌ User credentials file not found at '{USERS_FILE}'. Please create it with hashed passwords.")
     st.stop()
 except Exception as e:
     st.sidebar.error(f"❌ Error loading user credentials: {e}")
@@ -54,7 +67,7 @@ try:
     st.sidebar.success("✅ All model components loaded successfully!")
 
 except FileNotFoundError as e:
-    st.sidebar.error(f"❌ Required model file not found: {e}. Please ensure all .pkl files are in the '{MODEL_ARTIFACTS_DIR}' directory (or update the path).")
+    st.sidebar.error(f"❌ Required model file not found: {e}. Please ensure all .pkl files are in the '{MODEL_ARTIFACTS_DIR}' directory.")
     st.stop()
 except Exception as e:
     st.sidebar.error(f"❌ Error loading model components: {e}")
@@ -68,12 +81,11 @@ def login_page():
 
     if st.sidebar.button("Login"):
         if email in users:
-            # <--- IMPORTANT CHANGE HERE: Use bcrypt.verify()
             if bcrypt.verify(password, users[email]):
                 st.session_state['logged_in'] = True
                 st.session_state['username'] = email
                 st.sidebar.success("Logged in successfully!")
-                st.rerun()
+                st.rerun() # Rerun to switch to the main app content
             else:
                 st.sidebar.error("Invalid email or password.")
                 st.session_state['logged_in'] = False
@@ -85,11 +97,22 @@ def login_page():
     st.sidebar.info("Please enter your registered email and password to access the app.")
 
 # --- MAIN APP LOGIC ---
-st.set_page_config(page_title="Brucellosis Prediction App", layout="wide") # Set config once at the top
+# Apply global page configuration.
+st.set_page_config(page_title="Brucellosis Prediction App", layout="wide")
+
+# Inject the custom CSS for the dotted background
+st.markdown(DOTTED_BACKGROUND_CSS, unsafe_allow_html=True)
 
 if not st.session_state['logged_in']:
     st.title("Welcome to Brucellosis Prediction App")
-    # No image here as requested
+    # Display the image only on the login page
+    try:
+        st.image(IMAGE_PATH, caption="Caring for Animal Health", use_column_width=True)
+    except FileNotFoundError:
+        st.warning(f"⚠️ Veterinary image not found at '{IMAGE_PATH}'. Ensure 'veterinary.jpg' is in '{MODEL_ARTIFACTS_DIR}'.")
+    except Exception as e:
+        st.error(f"⚠️ Error loading veterinary image: {e}")
+
     login_page()
 else:
     # --- APP CONTENT (Your existing code goes here) ---

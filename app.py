@@ -74,18 +74,17 @@ ARTIFACTS_DIR = 'model_artifacts'
 @st.cache_resource
 def load_model_artifacts():
     """Load pre-trained model and preprocessors from saved files"""
-    print(f"DEBUG: Attempting to load artifacts from '{ARTIFACTS_DIR}'")
+    print(f"DEBUG: --- Starting load_model_artifacts ---")
+    print(f"DEBUG: Current Working Directory: {os.getcwd()}")
     try:
         model_dir = None
-        # Prioritize local relative path, then common deployment paths
-        # Added os.getcwd() for absolute current path debugging
         possible_paths = [
-            os.getcwd(), # Current working directory
-            os.path.join(os.getcwd(), ARTIFACTS_DIR), # Current working directory + artifacts folder
-            "./", # Current directory (relative)
-            os.path.join(".", ARTIFACTS_DIR), # Current directory (relative) + artifacts folder
-            os.path.join("/app", ARTIFACTS_DIR), # Common for Streamlit Cloud
-            os.path.join("/mount/src/brucella_disease_predic", ARTIFACTS_DIR) # User's specified repo name + artifacts folder
+            os.getcwd(),
+            os.path.join(os.getcwd(), ARTIFACTS_DIR),
+            "./",
+            os.path.join(".", ARTIFACTS_DIR),
+            os.path.join("/app", ARTIFACTS_DIR),
+            os.path.join("/mount/src/brucella_disease_predic", ARTIFACTS_DIR)
         ]
 
         for path in possible_paths:
@@ -98,72 +97,73 @@ def load_model_artifacts():
 
         if model_dir is None:
             st.error(f"❌ `best_model.pkl` not found! Please ensure it's in the '{ARTIFACTS_DIR}' directory.")
+            print(f"DEBUG: `best_model.pkl` not found after checking all paths.")
             return None, None, None, None, None, None
 
-        # Define full file paths
         best_model_path = os.path.join(model_dir, 'best_model.pkl')
         le_dict_path = os.path.join(model_dir, 'le_dict.pkl')
         le_target_path = os.path.join(model_dir, 'le_target.pkl')
         scaler_path = os.path.join(model_dir, 'scaler.pkl')
         feature_names_path = os.path.join(model_dir, 'feature_names.pkl')
-        df_clean_path = os.path.join(model_dir, 'df_clean.csv') # Path for df_clean.csv
+        df_clean_path = os.path.join(model_dir, 'df_clean.csv')
 
-        # Check if all required files exist
         required_files = [best_model_path, le_dict_path, le_target_path, feature_names_path, df_clean_path]
         missing_files = []
         for f_path in required_files:
-            print(f"DEBUG: Checking existence of required file: {f_path}")
+            print(f"DEBUG: Verifying existence of: {f_path}")
             if not os.path.exists(f_path):
                 missing_files.append(f_path)
 
         if missing_files:
             st.error(f"❌ Missing required files in '{model_dir}' directory: {missing_files}")
+            print(f"DEBUG: Missing files detected: {missing_files}")
             return None, None, None, None, None, None
 
-        # Load the artifacts
         print(f"DEBUG: All required files found. Attempting to load...")
+
         with open(best_model_path, 'rb') as f:
             model = pickle.load(f)
-        print(f"DEBUG: Loaded best_model.pkl from {best_model_path}")
+        print(f"DEBUG: Loaded best_model.pkl.")
 
         with open(le_dict_path, 'rb') as f:
             le_dict = pickle.load(f)
-        print(f"DEBUG: Loaded le_dict.pkl from {le_dict_path}")
+        print(f"DEBUG: Loaded le_dict.pkl.")
 
         with open(le_target_path, 'rb') as f:
             le_target = pickle.load(f)
-        print(f"DEBUG: Loaded le_target.pkl from {le_target_path}")
+        print(f"DEBUG: Loaded le_target.pkl.")
 
         with open(feature_names_path, 'rb') as f:
             feature_names = pickle.load(f)
-            feature_names = [f.strip() for f in feature_names] # Ensure feature names are stripped
-        print(f"DEBUG: Loaded feature_names.pkl from {feature_names_path}. First 5 features: {feature_names[:5]}")
+            # CRITICAL: Ensure feature names are stripped here again, even if they were before saving
+            feature_names = [f.strip() for f in feature_names]
+        print(f"DEBUG: Loaded feature_names.pkl. Full list of feature names (from PKL): {feature_names}")
+        print(f"DEBUG: Number of feature names loaded: {len(feature_names)}")
 
 
-        # Load df_clean.csv
         df_clean = pd.read_csv(df_clean_path)
         df_clean.columns = df_clean.columns.str.strip() # Ensure df_clean columns are stripped
-        print(f"DEBUG: Loaded df_clean.csv from {df_clean_path}. Shape: {df_clean.shape}")
+        print(f"DEBUG: Loaded df_clean.csv. Shape: {df_clean.shape}")
         print(f"DEBUG: df_clean columns (after stripping): {df_clean.columns.tolist()}")
-        print("DEBUG: df_clean head:\n", df_clean.head())
+        print("DEBUG: df_clean head:\n", df_clean.head().to_string()) # Use to_string to avoid truncation
 
 
-        # Load scaler if it exists
         scaler = None
         if os.path.exists(scaler_path):
             try:
                 with open(scaler_path, 'rb') as f:
                     scaler = pickle.load(f)
                 st.success("✅ Scaler loaded successfully!")
-                print(f"DEBUG: Loaded scaler.pkl from {scaler_path}")
+                print(f"DEBUG: Loaded scaler.pkl.")
             except Exception as e:
                 st.warning(f"⚠️ Could not load scaler: {e}")
                 print(f"DEBUG: Error loading scaler.pkl: {e}")
         else:
-            print(f"DEBUG: scaler.pkl not found at {scaler_path}. Skipping scaler load.")
+            print(f"DEBUG: scaler.pkl not found. Skipping scaler load.")
 
 
         st.success("✅ Model and preprocessors loaded successfully!")
+        print(f"DEBUG: --- Finished load_model_artifacts successfully ---")
         return model, le_dict, le_target, scaler, feature_names, df_clean
 
     except Exception as e:
@@ -171,6 +171,7 @@ def load_model_artifacts():
         st.error(traceback.format_exc())
         print(f"DEBUG: Exception during load_model_artifacts: {str(e)}")
         print(f"DEBUG: Traceback:\n{traceback.format_exc()}")
+        print(f"DEBUG: --- Finished load_model_artifacts with error ---")
         return None, None, None, None, None, None
 
 # Load model and preprocessors
@@ -180,7 +181,7 @@ with st.spinner("Loading model and preprocessors..."):
 if model is None or le_dict is None or le_target is None or feature_names is None or df_clean is None:
     st.error("❌ Failed to load required model components or data! Please check the error messages above.")
     st.info("Ensure the `model_artifacts` directory contains `best_model.pkl`, `le_dict.pkl`, `le_target.pkl`, `feature_names.pkl`, `df_clean.csv`, and optionally `scaler.pkl`.")
-    st.stop() # Stop the app if essential components are not loaded
+    st.stop()
 
 # Sidebar for model information
 with st.sidebar:
@@ -205,7 +206,7 @@ def safe_encode_value(value, encoder, column_name):
         if isinstance(value, str):
             cleaned_value = value.strip().title()
         else:
-            cleaned_value = value # For numerical values, no cleaning needed
+            cleaned_value = value
 
         if cleaned_value not in encoder.classes_:
             st.warning(f"Unknown value '{value}' for {column_name}. Using fallback (first class: '{encoder.classes_[0]}').")
@@ -220,7 +221,6 @@ def safe_encode_value(value, encoder, column_name):
 # Main prediction interface
 st.markdown('<h2 class="sub-header">🔬 Enter Animal Details</h2>', unsafe_allow_html=True)
 
-# Create input form
 with st.form("prediction_form"):
     col1, col2, col3 = st.columns(3)
 
@@ -276,23 +276,40 @@ if submitted:
             'Proper Disposal of Aborted Fetuses (Yes No)': disposal
         }
 
+        # Create input_df with the exact keys
         input_df = pd.DataFrame([input_data])
+        print(f"DEBUG: Initial input_df columns from form: {input_df.columns.tolist()}")
+        print(f"DEBUG: Initial input_df head:\n{input_df.head().to_string()}")
 
         for col_name_stripped in input_df.columns:
             if col_name_stripped in le_dict and input_df[col_name_stripped].dtype == 'object':
                 input_df[col_name_stripped] = safe_encode_value(input_df[col_name_stripped].iloc[0], le_dict[col_name_stripped], col_name_stripped)
+        print(f"DEBUG: input_df columns after categorical encoding: {input_df.columns.tolist()}")
 
+
+        # Reorder columns and add missing ones based on feature_names
+        # This is where the mismatch typically occurs if feature_names itself is wrong
+        final_input_df_data = {}
         for col in feature_names:
-            if col not in input_df.columns:
-                input_df[col] = 0
+            if col in input_df.columns:
+                final_input_df_data[col] = input_df[col].iloc[0]
+            else:
+                # If a feature_name is missing from input_df (e.g., a form field was missing, or a column was dropped during training for some reason)
+                # It will be filled with 0. This needs to align with training script's handling of such cases.
+                final_input_df_data[col] = 0
+        input_df = pd.DataFrame([final_input_df_data])
 
-        input_df = input_df[feature_names]
+        print(f"DEBUG: input_df columns BEFORE SCALING/PREDICTION (should match feature_names): {input_df.columns.tolist()}")
+        print(f"DEBUG: Final input_df head BEFORE SCALING/PREDICTION:\n{input_df.head().to_string()}")
+
 
         if scaler is not None:
             numerical_cols_stripped = ['Age', 'Calvings']
             existing_numerical_cols = [col for col in numerical_cols_stripped if col in input_df.columns]
             if existing_numerical_cols:
                 input_df[existing_numerical_cols] = scaler.transform(input_df[existing_numerical_cols])
+            print(f"DEBUG: input_df after scaling for numerical columns: {existing_numerical_cols}")
+
 
         prediction = model.predict(input_df)[0]
         probabilities = model.predict_proba(input_df)[0]
@@ -424,11 +441,13 @@ with st.expander("📁 Batch Prediction (Upload CSV)"):
                                 if col_name_stripped in le_dict and input_df_batch[col_name_stripped].dtype == 'object':
                                     input_df_batch[col_name_stripped] = safe_encode_value(input_df_batch[col_name_stripped].iloc[0], le_dict[col_name_stripped], col_name_stripped)
 
+                            final_input_df_data_batch = {}
                             for col in feature_names:
-                                if col not in input_df_batch.columns:
-                                    input_df_batch[col] = 0
-
-                            input_df_batch = input_df_batch[feature_names]
+                                if col in input_df_batch.columns:
+                                    final_input_df_data_batch[col] = input_df_batch[col].iloc[0]
+                                else:
+                                    final_input_df_data_batch[col] = 0
+                            input_df_batch = pd.DataFrame([final_input_df_data_batch])
 
                             if scaler is not None:
                                 numerical_cols_stripped = ['Age', 'Calvings']

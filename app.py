@@ -104,12 +104,18 @@ def load_model_artifacts():
         le_dict_path = os.path.join(model_dir, 'le_dict.pkl')
         le_target_path = os.path.join(model_dir, 'le_target.pkl')
         scaler_path = os.path.join(model_dir, 'scaler.pkl')
-        feature_names_path = os.path.join(model_dir, 'feature_names.pkl')
+        # feature_names_path = os.path.join(model_dir, 'feature_names.pkl') # No longer needed for loading
         df_clean_path = os.path.join(model_dir, 'df_clean.csv')
 
-        required_files = [best_model_path, le_dict_path, le_target_path, feature_names_path, df_clean_path]
+        # Define feature_names directly from the confirmed list
+        feature_names = ['Age', 'Breed species', 'Sex', 'Calvings', 'Abortion History (Yes No)', 'Infertility Repeat breeder(Yes No)', 'Brucella vaccination status (Yes No)', 'Sample Type(Serum Milk)', 'Test Type (RBPT ELISA MRT)', 'Retained Placenta Stillbirth(Yes No No Data)', 'Proper Disposal of Aborted Fetuses (Yes No)']
+        print(f"DEBUG: Hardcoded feature_names: {feature_names}")
+
+
+        # Check if all OTHER required files exist
+        required_files_except_feature_names = [best_model_path, le_dict_path, le_target_path, df_clean_path]
         missing_files = []
-        for f_path in required_files:
+        for f_path in required_files_except_feature_names:
             print(f"DEBUG: Verifying existence of: {f_path}")
             if not os.path.exists(f_path):
                 missing_files.append(f_path)
@@ -133,19 +139,12 @@ def load_model_artifacts():
             le_target = pickle.load(f)
         print(f"DEBUG: Loaded le_target.pkl.")
 
-        with open(feature_names_path, 'rb') as f:
-            feature_names = pickle.load(f)
-            # CRITICAL: Ensure feature names are stripped here again, even if they were before saving
-            feature_names = [f.strip() for f in feature_names]
-        print(f"DEBUG: Loaded feature_names.pkl. Full list of feature names (from PKL): {feature_names}")
-        print(f"DEBUG: Number of feature names loaded: {len(feature_names)}")
-
-
+        # df_clean.csv is used for populating dropdowns and ensuring consistent values
         df_clean = pd.read_csv(df_clean_path)
         df_clean.columns = df_clean.columns.str.strip() # Ensure df_clean columns are stripped
         print(f"DEBUG: Loaded df_clean.csv. Shape: {df_clean.shape}")
         print(f"DEBUG: df_clean columns (after stripping): {df_clean.columns.tolist()}")
-        print("DEBUG: df_clean head:\n", df_clean.head().to_string()) # Use to_string to avoid truncation
+        print("DEBUG: df_clean head:\n", df_clean.head().to_string())
 
 
         scaler = None
@@ -180,7 +179,7 @@ with st.spinner("Loading model and preprocessors..."):
 
 if model is None or le_dict is None or le_target is None or feature_names is None or df_clean is None:
     st.error("❌ Failed to load required model components or data! Please check the error messages above.")
-    st.info("Ensure the `model_artifacts` directory contains `best_model.pkl`, `le_dict.pkl`, `le_target.pkl`, `feature_names.pkl`, `df_clean.csv`, and optionally `scaler.pkl`.")
+    st.info("Ensure the `model_artifacts` directory contains `best_model.pkl`, `le_dict.pkl`, `le_target.pkl`, `df_clean.csv`, and optionally `scaler.pkl`.")
     st.stop()
 
 # Sidebar for model information

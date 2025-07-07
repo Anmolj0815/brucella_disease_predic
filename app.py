@@ -11,14 +11,15 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
-import json # Import json for reading user credentials
+import json
+from passlib.hash import bcrypt # <--- NEW: Import bcrypt for hashing
 
 warnings.filterwarnings('ignore')
 
 # --- CONFIGURATION ---
 MODEL_ARTIFACTS_DIR = 'model_artifacts/'
-IMAGE_PATH = MODEL_ARTIFACTS_DIR + 'veterinary.jpg'
-USERS_FILE = MODEL_ARTIFACTS_DIR + 'users.json' # Path to your user credentials file
+# Removed IMAGE_PATH line as you requested to remove the image
+USERS_FILE = MODEL_ARTIFACTS_DIR + 'users.json'
 
 # --- LOAD USER CREDENTIALS ---
 users = {}
@@ -38,7 +39,6 @@ if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
 # --- LOAD MODEL ARTIFACTS ---
-# (Rest of your existing model loading code)
 try:
     with open(MODEL_ARTIFACTS_DIR + 'best_model.pkl', 'rb') as f:
         best_model = pickle.load(f)
@@ -54,7 +54,7 @@ try:
     st.sidebar.success("✅ All model components loaded successfully!")
 
 except FileNotFoundError as e:
-    st.sidebar.error(f"❌ Required model file not found: {e}. Please ensure all .pkl files and the image are in the '{MODEL_ARTIFACTS_DIR}' directory (or update the path).")
+    st.sidebar.error(f"❌ Required model file not found: {e}. Please ensure all .pkl files are in the '{MODEL_ARTIFACTS_DIR}' directory (or update the path).")
     st.stop()
 except Exception as e:
     st.sidebar.error(f"❌ Error loading model components: {e}")
@@ -67,47 +67,35 @@ def login_page():
     password = st.sidebar.text_input("Password", type="password")
 
     if st.sidebar.button("Login"):
-        if email in users and users[email] == password: # In a real app, hash and compare passwords
-            st.session_state['logged_in'] = True
-            st.session_state['username'] = email # Store username in session state
-            st.sidebar.success("Logged in successfully!")
-            st.rerun() # Rerun the app to show content
+        if email in users:
+            # <--- IMPORTANT CHANGE HERE: Use bcrypt.verify()
+            if bcrypt.verify(password, users[email]):
+                st.session_state['logged_in'] = True
+                st.session_state['username'] = email
+                st.sidebar.success("Logged in successfully!")
+                st.rerun()
+            else:
+                st.sidebar.error("Invalid email or password.")
+                st.session_state['logged_in'] = False
         else:
             st.sidebar.error("Invalid email or password.")
-            st.session_state['logged_in'] = False # Ensure state is false on failure
+            st.session_state['logged_in'] = False
 
     st.sidebar.markdown("---")
     st.sidebar.info("Please enter your registered email and password to access the app.")
 
 # --- MAIN APP LOGIC ---
-if not st.session_state['logged_in']:
-    st.set_page_config(page_title="Brucellosis Prediction App - Login", layout="centered")
-    st.title("Welcome to Brucellosis Prediction App")
-    # Display the veterinary image at the very top of the login page
-    try:
-        st.image(IMAGE_PATH, caption="Caring for Animal Health", use_column_width=True)
-    except FileNotFoundError:
-        st.warning(f"⚠️ Veterinary image not found at '{IMAGE_PATH}'. Please ensure 'veterinary.jpg' is in the '{MODEL_ARTIFACTS_DIR}' folder.")
-    except Exception as e:
-        st.error(f"⚠️ Error loading veterinary image: {e}")
+st.set_page_config(page_title="Brucellosis Prediction App", layout="wide") # Set config once at the top
 
+if not st.session_state['logged_in']:
+    st.title("Welcome to Brucellosis Prediction App")
+    # No image here as requested
     login_page()
 else:
     # --- APP CONTENT (Your existing code goes here) ---
-    st.set_page_config(page_title="Brucellosis Prediction App", layout="wide")
-
-    # Display the veterinary image at the very top (only after login)
-    try:
-        st.image(IMAGE_PATH, caption="Caring for Animal Health", use_column_width=True)
-    except FileNotFoundError:
-        st.warning(f"⚠️ Veterinary image not found at '{IMAGE_PATH}'. Please ensure 'veterinary.jpg' is in the '{MODEL_ARTIFACTS_DIR}' folder.")
-    except Exception as e:
-        st.error(f"⚠️ Error loading veterinary image: {e}")
-
     st.title("🐂 Brucellosis Prediction Model")
     st.markdown(f"Welcome, **{st.session_state['username']}**! Enter the animal's details to predict its Brucellosis status.")
 
-    # --- Logout Button ---
     st.sidebar.button("Logout", on_click=lambda: st.session_state.update(logged_in=False, username=None))
     st.sidebar.markdown("---")
 
@@ -193,7 +181,7 @@ else:
         sample_type = st.selectbox("Sample Type (Serum/Milk)", options=unique_sample_type)
         test_type = st.selectbox("Test Type (RBPT/ELISA/MRT)", options=unique_test_type)
         retained_placenta = st.selectbox("Retained Placenta/Stillbirth", options=unique_retained_placenta)
-        proper_disposal = st.selectbox("Proper Disposal of Aborted Fetuses (Yes/No)", options=unique_disposal)
+        proper_disposal = st.selectbox("Proper Disposal of Aborted Fetuses (Yes No)", options=unique_disposal)
 
 
     input_data = {

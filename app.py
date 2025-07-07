@@ -181,5 +181,4 @@ if st.button("Predict Brucellosis Status"):
             st.error("Failed to make a prediction. Please check the input values and error messages above.")
 
 st.markdown("---")
-st.markdown("Developed with ❤️ for Veterinary Health
-By Anmol Jain Btech ECE Lnmiit Jaipur")
+st.markdown("Developed with ❤️ for Veterinary Health By Anmol Jain Btech ECE Lnmiit Jaipur")

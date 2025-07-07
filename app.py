@@ -11,35 +11,102 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 import json
-from passlib.hash import bcrypt # Import bcrypt for hashing
-import os # Import os for robust path handling
+from passlib.hash import bcrypt
+import os
 
 warnings.filterwarnings('ignore')
 
 # --- CONFIGURATION ---
 MODEL_ARTIFACTS_DIR = 'model_artifacts/'
 IMAGE_FILENAME = 'veterinary.jpg'
-IMAGE_PATH = os.path.join(MODEL_ARTIFACTS_DIR, IMAGE_FILENAME) # Use os.path.join for robustness
-USERS_FILE = os.path.join(MODEL_ARTIFACTS_DIR, 'users.json') # CORRECTED TYPO HERE and using os.path.join
+IMAGE_PATH = os.path.join(MODEL_ARTIFACTS_DIR, IMAGE_FILENAME)
+USERS_FILE = os.path.join(MODEL_ARTIFACTS_DIR, 'users.json') # Typo fixed previously
 
-# --- HTML/CSS for Dotted Background with subtle animation ---
+
+# --- HTML/CSS for Dotted Background with subtle animation and improved theme ---
 DOTTED_BACKGROUND_CSS = """
 <style>
+/* Keyframe animation for subtle dot movement */
 @keyframes dot-move {
     0% { background-position: 0% 0%; }
     100% { background-position: 100% 100%; } /* Moves dots diagonally */
 }
 
 body {
-    background-color: #f0f2f6; /* Light gray background */
-    background-image: radial-gradient(#d3d3d3 1px, transparent 1px);
-    background-size: 20px 20px; /* Adjust dot size and spacing */
-    animation: dot-move 60s linear infinite; /* Apply animation: 60s duration, linear, infinite loop */
+    background-color: #e0e6ed; /* Lighter background for better contrast */
+    background-image: radial-gradient(#c2cbd6 1px, transparent 1px); /* Slightly darker, more subtle dots */
+    background-size: 25px 25px; /* Slightly larger spacing for less clutter */
+    animation: dot-move 90s linear infinite; /* Slower animation for more subtlety */
 }
 
-/* Ensure the main Streamlit content is on top of the background */
+/* Ensure the main Streamlit app content is transparent to show body background */
 .stApp {
-    background-color: transparent; /* Make app background transparent to show body background */
+    background-color: transparent;
+    color: #333333; /* Darker text for better readability against lighter background */
+}
+
+/* Custom styling for headers and titles */
+h1, h2, h3, h4, h5, h6 {
+    color: #2c3e50; /* Dark blue-gray for headings */
+}
+
+/* Adjust text color for general markdown */
+.stMarkdown {
+    color: #333333;
+}
+
+/* Style for input widgets like selectbox, text_input */
+.stSelectbox > div > div, .stTextInput > div > div {
+    background-color: #ffffff; /* White background for inputs */
+    border: 1px solid #cccccc; /* Light border */
+    border-radius: 5px;
+    color: #333333; /* Dark text inside inputs */
+}
+
+/* Style for sliders */
+.stSlider .st-fx { /* Target the slider track */
+    background-color: #ccddee; /* Light blue track */
+}
+.stSlider .st-fo { /* Target the slider thumb */
+    background-color: #4CAF50; /* Green thumb */
+}
+
+/* Style for buttons */
+.stButton > button {
+    background-color: #4CAF50; /* Green button */
+    color: white; /* White text */
+    border-radius: 5px;
+    border: none;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+.stButton > button:hover {
+    background-color: #45a049; /* Darker green on hover */
+}
+
+/* Style for containers, if used for visual grouping */
+.stContainer {
+    background-color: rgba(255, 255, 255, 0.85); /* Slightly transparent white background for sections */
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+}
+
+/* Specific styling for the prediction results section */
+.prediction-results-container {
+    background-color: rgba(245, 255, 245, 0.9); /* Very light green background for results */
+    border: 1px solid #d4edda;
+    color: #155724;
+}
+
+/* Styling for success/info/error messages */
+.stAlert > div {
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 10px;
 }
 </style>
 """
@@ -56,7 +123,7 @@ users = {}
 try:
     if not os.path.exists(USERS_FILE):
         st.sidebar.error(f"❌ User credentials file not found at '{USERS_FILE}'. Please create it with hashed passwords.")
-        st.stop() # Stop if the file doesn't exist
+        st.stop()
     with open(USERS_FILE, 'r') as f:
         users = json.load(f)
     st.sidebar.success("🔒 User credentials loaded successfully!")
@@ -73,7 +140,6 @@ if 'logged_in' not in st.session_state:
 
 # --- LOAD MODEL ARTIFACTS ---
 try:
-    # Adding checks for model files
     required_model_files = ['best_model.pkl', 'le_dict.pkl', 'le_target.pkl', 'scaler.pkl', 'feature_names.pkl']
     for filename in required_model_files:
         file_path = os.path.join(MODEL_ARTIFACTS_DIR, filename)
@@ -111,13 +177,13 @@ def login_page():
                     st.session_state['logged_in'] = True
                     st.session_state['username'] = email
                     st.sidebar.success("Logged in successfully!")
-                    st.rerun() # Rerun to switch to the main app content
+                    st.rerun()
                 else:
                     st.sidebar.error("Invalid email or password.")
                     st.session_state['logged_in'] = False
             except ValueError as e:
                 st.sidebar.error("Invalid credentials format or internal error. Please contact support.")
-                st.exception(e) # Show full traceback for debugging if needed
+                st.exception(e)
                 st.session_state['logged_in'] = False
         else:
             st.sidebar.error("Invalid email or password.")
@@ -129,7 +195,6 @@ def login_page():
 # --- MAIN APP LOGIC (Conditional rendering based on login status) ---
 if not st.session_state['logged_in']:
     st.title("Welcome to Brucellosis Prediction App")
-    # Display the image only on the login page
     if os.path.exists(IMAGE_PATH):
         try:
             st.image(IMAGE_PATH, caption="Caring for Animal Health", use_column_width=True)
@@ -140,14 +205,12 @@ if not st.session_state['logged_in']:
 
     login_page()
 else:
-    # --- APP CONTENT (Your existing code for the main application) ---
     st.title("🐂 Brucellosis Prediction Model")
     st.markdown(f"Welcome, **{st.session_state['username']}**! Enter the animal's details to predict its Brucellosis status.")
 
     st.sidebar.button("Logout", on_click=lambda: st.session_state.update(logged_in=False, username=None))
     st.sidebar.markdown("---")
 
-    # Get unique categories for dropdowns
     unique_breeds = sorted(list(le_dict.get('Breed species', LabelEncoder()).classes_))
     unique_sex = sorted(list(le_dict.get('Sex', LabelEncoder()).classes_))
     unique_abortion_history = sorted(list(le_dict.get('Abortion History (Yes No)', LabelEncoder()).classes_))
@@ -160,11 +223,8 @@ else:
 
 
     def predict_single_case(input_dict, model, le_dict, le_target, scaler, feature_names):
-        """Predict a single case with robust error handling for encoding."""
-
-        # Convert input to DataFrame
         input_df = pd.DataFrame([input_dict])
-        input_df.columns = input_df.columns.str.strip() # Strip spaces from input_df columns
+        input_df.columns = input_df.columns.str.strip()
 
         if 'Breed species' in input_df.columns:
             input_df['Breed species'] = input_df['Breed species'].astype(str).str.replace(r'\s+', ' ', regex=True).str.strip()
@@ -200,67 +260,70 @@ else:
 
     st.sidebar.header("Input Features")
 
-    col1, col2 = st.columns(2)
+    # Use a container for the input section
+    with st.container():
+        st.subheader("Input Animal Details")
+        col1, col2 = st.columns(2)
 
-    with col1:
-        age = st.slider("Age (Years)", 0, 20, 5)
-        breed_species = st.selectbox("Breed/Species", options=unique_breeds)
-        sex = st.selectbox("Sex", options=unique_sex)
-        calvings = st.slider("Calvings", 0, 15, 1)
-        abortion_history = st.selectbox("Abortion History (Yes/No)", options=unique_abortion_history)
+        with col1:
+            age = st.slider("Age (Years)", 0, 20, 5)
+            breed_species = st.selectbox("Breed/Species", options=unique_breeds)
+            sex = st.selectbox("Sex", options=unique_sex)
+            calvings = st.slider("Calvings", 0, 15, 1)
+            abortion_history = st.selectbox("Abortion History (Yes/No)", options=unique_abortion_history)
 
-    with col2:
-        infertility_rb = st.selectbox("Infertility/Repeat Breeder (Yes/No)", options=unique_infertility)
-        vaccination_status = st.selectbox("Brucella Vaccination Status (Yes/No)", options=unique_vaccination_status)
-        sample_type = st.selectbox("Sample Type (Serum/Milk)", options=unique_sample_type)
-        test_type = st.selectbox("Test Type (RBPT/ELISA/MRT)", options=unique_test_type)
-        retained_placenta = st.selectbox("Retained Placenta/Stillbirth", options=unique_retained_placenta)
-        proper_disposal = st.selectbox("Proper Disposal of Aborted Fetuses (Yes No)", options=unique_disposal)
+        with col2:
+            infertility_rb = st.selectbox("Infertility/Repeat Breeder (Yes/No)", options=unique_infertility)
+            vaccination_status = st.selectbox("Brucella Vaccination Status (Yes/No)", options=unique_vaccination_status)
+            sample_type = st.selectbox("Sample Type (Serum/Milk)", options=unique_sample_type)
+            test_type = st.selectbox("Test Type (RBPT/ELISA/MRT)", options=unique_test_type)
+            retained_placenta = st.selectbox("Retained Placenta/Stillbirth", options=unique_retained_placenta)
+            proper_disposal = st.selectbox("Proper Disposal of Aborted Fetuses (Yes No)", options=unique_disposal)
 
-
-    input_data = {
-        'Age': age,
-        'Breed species': breed_species,
-        'Sex': sex,
-        'Calvings': calvings,
-        'Abortion History (Yes No)': abortion_history,
-        'Infertility Repeat breeder(Yes No)': infertility_rb,
-        'Brucella vaccination status (Yes No)': vaccination_status,
-        'Sample Type(Serum Milk)': sample_type,
-        'Test Type (RBPT ELISA MRT)': test_type,
-        'Retained Placenta Stillbirth(Yes No No Data)': retained_placenta,
-        'Proper Disposal of Aborted Fetuses (Yes No)': proper_disposal
-    }
+        input_data = {
+            'Age': age,
+            'Breed species': breed_species,
+            'Sex': sex,
+            'Calvings': calvings,
+            'Abortion History (Yes No)': abortion_history,
+            'Infertility Repeat breeder(Yes No)': infertility_rb,
+            'Brucella vaccination status (Yes No)': vaccination_status,
+            'Sample Type(Serum Milk)': sample_type,
+            'Test Type (RBPT ELISA MRT)': test_type,
+            'Retained Placenta Stillbirth(Yes No No Data)': retained_placenta,
+            'Proper Disposal of Aborted Fetuses (Yes No)': proper_disposal
+        }
 
     st.subheader("Provided Input:")
     st.json(input_data)
 
     if st.button("Predict Brucellosis Status"):
-        st.subheader("Prediction Results:")
-        with st.spinner('Making prediction...'):
-            prediction_output = predict_single_case(
-                input_data, best_model, le_dict, le_target, scaler, feature_names
-            )
+        # Use a container for the prediction results
+        with st.container():
+            st.subheader("Prediction Results:")
+            with st.spinner('Making prediction...'):
+                prediction_output = predict_single_case(
+                    input_data, best_model, le_dict, le_target, scaler, feature_names
+                )
 
-            if prediction_output:
-                st.success(f"**Predicted Result:** {prediction_output['predicted_class']}")
-                st.info(f"**Confidence:** {prediction_output['confidence']:.2%}")
+                if prediction_output:
+                    st.success(f"**Predicted Result:** {prediction_output['predicted_class']}")
+                    st.info(f"**Confidence:** {prediction_output['confidence']:.2%}")
 
-                st.write("---")
-                st.subheader("Class-wise Probabilities:")
-                prob_df = pd.DataFrame.from_dict(prediction_output['probabilities'], orient='index', columns=['Probability'])
-                prob_df = prob_df.sort_values(by='Probability', ascending=False)
-                st.dataframe(prob_df.style.format("{:.2%}"))
+                    st.write("---")
+                    st.subheader("Class-wise Probabilities:")
+                    prob_df = pd.DataFrame.from_dict(prediction_output['probabilities'], orient='index', columns=['Probability'])
+                    prob_df = prob_df.sort_values(by='Probability', ascending=False)
+                    st.dataframe(prob_df.style.format("{:.2%}"))
 
-                # Visualizing probabilities
-                fig, ax = plt.subplots(figsize=(8, 4))
-                sns.barplot(x=prob_df.index, y=prob_df['Probability'], palette='viridis', ax=ax)
-                ax.set_title("Predicted Class Probabilities")
-                ax.set_ylabel("Probability")
-                ax.set_xlabel("Brucellosis Status")
-                st.pyplot(fig)
-            else:
-                st.error("Failed to make a prediction. Please check the input values and error messages above.")
+                    fig, ax = plt.subplots(figsize=(8, 4))
+                    sns.barplot(x=prob_df.index, y=prob_df['Probability'], palette='viridis', ax=ax)
+                    ax.set_title("Predicted Class Probabilities")
+                    ax.set_ylabel("Probability")
+                    ax.set_xlabel("Brucellosis Status")
+                    st.pyplot(fig)
+                else:
+                    st.error("Failed to make a prediction. Please check the input values and error messages above.")
 
     st.markdown("---")
     st.markdown("Developed with ❤️ for Veterinary Health")

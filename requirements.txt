@@ -6,3 +6,4 @@ scikit-learn
 streamlit
 imblearn
 xgboost
+passlib[bcrypt]

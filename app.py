@@ -4,8 +4,6 @@ import numpy as np
 import pickle
 import os
 import traceback
-# Removed confusion_matrix, matplotlib.pyplot, seaborn as they are not used with best_model.pkl directly
-# If you want to add them back, you'll need to save/load y_test as a separate artifact.
 
 # Set page config
 st.set_page_config(
@@ -76,23 +74,26 @@ ARTIFACTS_DIR = 'model_artifacts'
 @st.cache_resource
 def load_model_artifacts():
     """Load pre-trained model and preprocessors from saved files"""
+    print(f"DEBUG: Attempting to load artifacts from '{ARTIFACTS_DIR}'")
     try:
         model_dir = None
         # Prioritize local relative path, then common deployment paths
+        # Added os.getcwd() for absolute current path debugging
         possible_paths = [
-            "./", # Current directory
-            os.path.join(".", ARTIFACTS_DIR), # Expected for local setup
+            os.getcwd(), # Current working directory
+            os.path.join(os.getcwd(), ARTIFACTS_DIR), # Current working directory + artifacts folder
+            "./", # Current directory (relative)
+            os.path.join(".", ARTIFACTS_DIR), # Current directory (relative) + artifacts folder
             os.path.join("/app", ARTIFACTS_DIR), # Common for Streamlit Cloud
-            os.path.join("/mount/src/your_repo_name", ARTIFACTS_DIR) # Another common Streamlit Cloud path
+            os.path.join("/mount/src/brucella_disease_predic", ARTIFACTS_DIR) # User's specified repo name + artifacts folder
         ]
 
         for path in possible_paths:
-            # Look for best_model.pkl directly within these paths
             full_model_path = os.path.join(path, 'best_model.pkl')
-            # st.write(f"DEBUG: Checking path: {full_model_path}") # Debugging
+            print(f"DEBUG: Checking path for best_model.pkl: {full_model_path}")
             if os.path.exists(full_model_path):
                 model_dir = path
-                # st.write(f"DEBUG: Found model directory: {model_dir}") # Debugging
+                print(f"DEBUG: Found model directory at: {model_dir}")
                 break
 
         if model_dir is None:
@@ -105,32 +106,47 @@ def load_model_artifacts():
         le_target_path = os.path.join(model_dir, 'le_target.pkl')
         scaler_path = os.path.join(model_dir, 'scaler.pkl')
         feature_names_path = os.path.join(model_dir, 'feature_names.pkl')
-        df_clean_path = os.path.join(model_dir, 'df_clean.csv')
+        df_clean_path = os.path.join(model_dir, 'df_clean.csv') # Path for df_clean.csv
 
         # Check if all required files exist
         required_files = [best_model_path, le_dict_path, le_target_path, feature_names_path, df_clean_path]
-        missing_files = [f for f in required_files if not os.path.exists(f)]
+        missing_files = []
+        for f_path in required_files:
+            print(f"DEBUG: Checking existence of required file: {f_path}")
+            if not os.path.exists(f_path):
+                missing_files.append(f_path)
 
         if missing_files:
             st.error(f"❌ Missing required files in '{model_dir}' directory: {missing_files}")
             return None, None, None, None, None, None
 
         # Load the artifacts
+        print(f"DEBUG: All required files found. Attempting to load...")
         with open(best_model_path, 'rb') as f:
             model = pickle.load(f)
+        print(f"DEBUG: Loaded best_model.pkl from {best_model_path}")
 
         with open(le_dict_path, 'rb') as f:
             le_dict = pickle.load(f)
+        print(f"DEBUG: Loaded le_dict.pkl from {le_dict_path}")
+
         with open(le_target_path, 'rb') as f:
             le_target = pickle.load(f)
+        print(f"DEBUG: Loaded le_target.pkl from {le_target_path}")
+
         with open(feature_names_path, 'rb') as f:
             feature_names = pickle.load(f)
-            # CRITICAL: Ensure feature names are stripped after loading
-            feature_names = [f.strip() for f in feature_names]
+            feature_names = [f.strip() for f in feature_names] # Ensure feature names are stripped
+        print(f"DEBUG: Loaded feature_names.pkl from {feature_names_path}. First 5 features: {feature_names[:5]}")
 
-        # Load df_clean
+
+        # Load df_clean.csv
         df_clean = pd.read_csv(df_clean_path)
         df_clean.columns = df_clean.columns.str.strip() # Ensure df_clean columns are stripped
+        print(f"DEBUG: Loaded df_clean.csv from {df_clean_path}. Shape: {df_clean.shape}")
+        print(f"DEBUG: df_clean columns (after stripping): {df_clean.columns.tolist()}")
+        print("DEBUG: df_clean head:\n", df_clean.head())
+
 
         # Load scaler if it exists
         scaler = None
@@ -139,8 +155,13 @@ def load_model_artifacts():
                 with open(scaler_path, 'rb') as f:
                     scaler = pickle.load(f)
                 st.success("✅ Scaler loaded successfully!")
+                print(f"DEBUG: Loaded scaler.pkl from {scaler_path}")
             except Exception as e:
                 st.warning(f"⚠️ Could not load scaler: {e}")
+                print(f"DEBUG: Error loading scaler.pkl: {e}")
+        else:
+            print(f"DEBUG: scaler.pkl not found at {scaler_path}. Skipping scaler load.")
+
 
         st.success("✅ Model and preprocessors loaded successfully!")
         return model, le_dict, le_target, scaler, feature_names, df_clean
@@ -148,6 +169,8 @@ def load_model_artifacts():
     except Exception as e:
         st.error(f"❌ Error loading model artifacts: {str(e)}")
         st.error(traceback.format_exc())
+        print(f"DEBUG: Exception during load_model_artifacts: {str(e)}")
+        print(f"DEBUG: Traceback:\n{traceback.format_exc()}")
         return None, None, None, None, None, None
 
 # Load model and preprocessors
@@ -179,23 +202,19 @@ with st.sidebar:
 def safe_encode_value(value, encoder, column_name):
     """Safely encode a value with proper error handling and fallback."""
     try:
-        # CRITICAL: Apply strip().title() to the input value for consistency
         if isinstance(value, str):
             cleaned_value = value.strip().title()
         else:
             cleaned_value = value # For numerical values, no cleaning needed
 
-        # Check if the cleaned value is in the encoder's known classes
         if cleaned_value not in encoder.classes_:
             st.warning(f"Unknown value '{value}' for {column_name}. Using fallback (first class: '{encoder.classes_[0]}').")
-            # Fallback: return the encoding of the first class, or a common/default class
             return encoder.transform([encoder.classes_[0]])[0]
 
         encoded = encoder.transform([cleaned_value])[0]
         return encoded
     except Exception as e:
         st.error(f"Error encoding {column_name} with value '{value}': {str(e)}. Using fallback (first class).")
-        # Fallback in case of any other encoding error
         return encoder.transform([encoder.classes_[0]])[0]
 
 # Main prediction interface
@@ -208,7 +227,6 @@ with st.form("prediction_form"):
     with col1:
         age = st.number_input("Age (years)", min_value=1, max_value=20, value=4)
 
-        # CRITICAL: Populate selectbox options by cleaning df_clean values
         breed_options = sorted([str(x).strip().title() for x in df_clean['Breed species'].unique().tolist() if pd.notna(x)])
         breed = st.selectbox("Breed Species", breed_options)
 
@@ -240,12 +258,10 @@ with st.form("prediction_form"):
         disposal_options = sorted([str(x).strip().title() for x in df_clean['Proper Disposal of Aborted Fetuses (Yes No)'].unique().tolist() if pd.notna(x)])
         disposal = st.selectbox("Proper Disposal of Aborted Fetuses", disposal_options)
 
-    # Submit button
     submitted = st.form_submit_button("🔍 Predict Brucellosis Status", use_container_width=True)
 
 if submitted:
     try:
-        # Prepare input data: Keys here MUST match the *stripped* feature names
         input_data = {
             'Age': age,
             'Breed species': breed,
@@ -260,43 +276,33 @@ if submitted:
             'Proper Disposal of Aborted Fetuses (Yes No)': disposal
         }
 
-        # Convert to DataFrame
         input_df = pd.DataFrame([input_data])
-        # No need to strip columns here, as keys in input_data are already stripped to match feature_names
 
-        # Encode categorical features safely
         for col_name_stripped in input_df.columns:
             if col_name_stripped in le_dict and input_df[col_name_stripped].dtype == 'object':
                 input_df[col_name_stripped] = safe_encode_value(input_df[col_name_stripped].iloc[0], le_dict[col_name_stripped], col_name_stripped)
 
-        # Ensure all features are present and in the correct order as per 'feature_names'
         for col in feature_names:
             if col not in input_df.columns:
-                input_df[col] = 0 # Default for new columns
+                input_df[col] = 0
 
-        # Reorder columns to match training data
         input_df = input_df[feature_names]
 
-        # Scale numerical features if scaler is available
         if scaler is not None:
             numerical_cols_stripped = ['Age', 'Calvings']
             existing_numerical_cols = [col for col in numerical_cols_stripped if col in input_df.columns]
             if existing_numerical_cols:
                 input_df[existing_numerical_cols] = scaler.transform(input_df[existing_numerical_cols])
 
-        # Make prediction
         prediction = model.predict(input_df)[0]
         probabilities = model.predict_proba(input_df)[0]
 
-        # Convert back to original labels
         predicted_result = le_target.inverse_transform([prediction])[0]
-        confidence = probabilities[prediction] # Confidence for the predicted class
+        confidence = probabilities[prediction]
 
-        # Display results
         st.markdown("---")
         st.markdown('<h2 class="sub-header">📊 Prediction Results</h2>', unsafe_allow_html=True)
 
-        # Main result box
         result_class = {
             "Positive": "positive-result",
             "Negative": "negative-result",
@@ -310,16 +316,15 @@ if submitted:
         </div>
         """, unsafe_allow_html=True)
 
-        # Detailed probabilities
         col1, col2, col3 = st.columns(3)
         classes = le_target.classes_
 
         for i, cls in enumerate(classes):
             prob_index = np.where(le_target.classes_ == cls)[0]
-            if prob_index.size > 0: # Check if class exists in probabilities
+            if prob_index.size > 0:
                 prob = probabilities[prob_index[0]]
             else:
-                prob = 0.0 # Default if class not found for some reason
+                prob = 0.0
 
             with [col1, col2, col3][i % 3]:
                 st.markdown(f"""
@@ -329,7 +334,6 @@ if submitted:
                 </div>
                 """, unsafe_allow_html=True)
 
-        # Risk assessment
         st.markdown("### 🚨 Risk Assessment")
 
         if predicted_result == "Positive":
@@ -355,7 +359,6 @@ if submitted:
             - Consider additional diagnostic tests
             """)
 
-        # Feature importance (if available in the model)
         st.markdown("### 📈 Key Risk Factors")
         try:
             if hasattr(model, 'feature_importances_'):
@@ -409,45 +412,36 @@ with st.expander("📁 Batch Prediction (Upload CSV)"):
                 with st.spinner("Processing batch predictions..."):
                     predictions = []
 
-                    # CRITICAL: Ensure batch DataFrame columns are stripped to match expected features
                     df_batch.columns = df_batch.columns.str.strip()
 
                     for index, row in df_batch.iterrows():
                         try:
-                            # Create a single-row DataFrame from the current row
                             input_dict_batch = row.to_dict()
-                            # CRITICAL: Strip keys in the dictionary before creating DataFrame
                             input_dict_batch_cleaned = {k.strip(): v for k, v in input_dict_batch.items()}
                             input_df_batch = pd.DataFrame([input_dict_batch_cleaned])
-                            # Columns are already stripped from input_df_batch due to cleaned dict keys
 
-                            # Encode categorical features
                             for col_name_stripped in input_df_batch.columns:
                                 if col_name_stripped in le_dict and input_df_batch[col_name_stripped].dtype == 'object':
                                     input_df_batch[col_name_stripped] = safe_encode_value(input_df_batch[col_name_stripped].iloc[0], le_dict[col_name_stripped], col_name_stripped)
 
-                            # Ensure all features are present
                             for col in feature_names:
                                 if col not in input_df_batch.columns:
-                                    input_df_batch[col] = 0 # Default for missing columns
+                                    input_df_batch[col] = 0
 
-                            # Reorder columns to match training data
                             input_df_batch = input_df_batch[feature_names]
 
-                            # Scale if needed
                             if scaler is not None:
                                 numerical_cols_stripped = ['Age', 'Calvings']
                                 existing_numerical_cols = [col for col in numerical_cols_stripped if col in input_df_batch.columns]
                                 if existing_numerical_cols:
                                     input_df_batch[existing_numerical_cols] = scaler.transform(input_df_batch[existing_numerical_cols])
 
-                            # Predict
                             pred = model.predict(input_df_batch)[0]
                             prob = model.predict_proba(input_df_batch)[0]
 
                             predictions.append({
                                 'Prediction': le_target.inverse_transform([pred])[0],
-                                'Confidence': prob[pred] # Confidence of the predicted class
+                                'Confidence': prob[pred]
                             })
 
                         except Exception as e:
@@ -457,12 +451,10 @@ with st.expander("📁 Batch Prediction (Upload CSV)"):
                                 'Confidence': 0.0
                             })
 
-                    # Display results
                     results_df = pd.concat([df_batch.reset_index(drop=True), pd.DataFrame(predictions)], axis=1)
                     st.write("Batch prediction results:")
                     st.dataframe(results_df, use_container_width=True)
 
-                    # Download results
                     csv = results_df.to_csv(index=False).encode('utf-8')
                     st.download_button(
                         label="📥 Download Results as CSV",

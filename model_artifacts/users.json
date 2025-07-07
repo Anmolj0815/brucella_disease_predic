@@ -1,6 +1,5 @@
 {
-  "user1@example.com": "password123",
-  "vet.mathura@gmail.com": "brucellosispass",
-  "admin@myclinic.com": "securepass",
-  "test":"test"
+  "user1@example.com": "$2b$12$EXAMPLEHASHFORPASSWORD123EXAMPLE...",
+  "vet.mathura@gmail.com": "$2b$12$EXAMPLEHASHFORBRUCELLOSISPASSEXAMPLE...",
+  "admin@myclinic.com": "$2b$12$EXAMPLEHASHFORSECUREPASSEXAMPLE..."
 }

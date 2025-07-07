@@ -20,93 +20,246 @@ warnings.filterwarnings('ignore')
 MODEL_ARTIFACTS_DIR = 'model_artifacts/'
 IMAGE_FILENAME = 'veterinary.jpg'
 IMAGE_PATH = os.path.join(MODEL_ARTIFACTS_DIR, IMAGE_FILENAME)
-USERS_FILE = os.path.join(MODEL_ARTIFACTS_DIR, 'users.json') # Typo fixed previously
+USERS_FILE = os.path.join(MODEL_ARTIFACTS_DIR, 'users.json')
 
-
-# --- HTML/CSS for Dotted Background with subtle animation and improved theme ---
-DOTTED_BACKGROUND_CSS = """
+# --- HTML/CSS for Animated Bubble Background & Theme ---
+# We'll use CSS variables for colors, which helps with theme adaptation.
+# Streamlit injects its own theme, so we'll try to override/complement it.
+BUBBLE_BACKGROUND_CSS = """
 <style>
-/* Keyframe animation for subtle dot movement */
-@keyframes dot-move {
-    0% { background-position: 0% 0%; }
-    100% { background-position: 100% 100%; } /* Moves dots diagonally */
+/* Define CSS Variables for adaptable colors */
+:root {
+    --primary-bg: #e0e6ed; /* Light mode body background */
+    --secondary-bg: #ffffff; /* Light mode container/widget background */
+    --text-color: #2c3e50; /* Dark text for light mode */
+    --header-color: #1a2c3a; /* Darker headers */
+    --accent-color: #4CAF50; /* Green accent for buttons/sliders */
+    --bubble-color: rgba(200, 210, 220, 0.5); /* Semi-transparent light bubble */
+    --bubble-border-color: rgba(180, 190, 200, 0.7); /* Slightly darker border for bubbles */
+}
+
+/* Dark mode overrides (Streamlit applies a [data-theme="dark"] attribute to html) */
+html[data-theme="dark"] {
+    --primary-bg: #1a1a2e; /* Darker background for dark mode */
+    --secondary-bg: #2a2a4a; /* Darker container/widget background */
+    --text-color: #e0e0e0; /* Lighter text for dark mode */
+    --header-color: #f0f0f0; /* Lighter headers */
+    --accent-color: #66BB6A; /* Brighter green accent for dark mode */
+    --bubble-color: rgba(50, 60, 80, 0.5); /* Semi-transparent dark bubble */
+    --bubble-border-color: rgba(70, 80, 100, 0.7); /* Slightly lighter border for dark bubbles */
 }
 
 body {
-    background-color: #e0e6ed; /* Lighter background for better contrast */
-    background-image: radial-gradient(#c2cbd6 1px, transparent 1px); /* Slightly darker, more subtle dots */
-    background-size: 25px 25px; /* Slightly larger spacing for less clutter */
-    animation: dot-move 90s linear infinite; /* Slower animation for more subtlety */
+    background: var(--primary-bg); /* Use CSS variable */
+    overflow: hidden; /* Hide scrollbars if bubbles go off screen */
+    margin: 0;
+    padding: 0;
 }
 
-/* Ensure the main Streamlit app content is transparent to show body background */
+/* The Streamlit main app container */
 .stApp {
-    background-color: transparent;
-    color: #333333; /* Darker text for better readability against lighter background */
+    background-color: transparent; /* Ensure transparent to show body background */
+    color: var(--text-color); /* Apply text color variable */
 }
 
-/* Custom styling for headers and titles */
+/* Styling for titles and headers */
 h1, h2, h3, h4, h5, h6 {
-    color: #2c3e50; /* Dark blue-gray for headings */
+    color: var(--header-color); /* Apply header color variable */
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.1); /* Subtle text shadow for pop */
 }
 
-/* Adjust text color for general markdown */
+/* General markdown text color */
 .stMarkdown {
-    color: #333333;
+    color: var(--text-color);
 }
 
-/* Style for input widgets like selectbox, text_input */
-.stSelectbox > div > div, .stTextInput > div > div {
-    background-color: #ffffff; /* White background for inputs */
-    border: 1px solid #cccccc; /* Light border */
-    border-radius: 5px;
-    color: #333333; /* Dark text inside inputs */
+/* Custom styling for Streamlit components */
+.stSelectbox > div > div,
+.stTextInput > div > div,
+.stTextArea > div > div, /* Added textarea in case you add it later */
+.stNumberInput > div > div {
+    background-color: var(--secondary-bg); /* Use secondary background variable */
+    border: 1px solid var(--bubble-border-color); /* Border based on bubble border for harmony */
+    border-radius: 8px; /* Slightly more rounded */
+    color: var(--text-color);
+    padding: 8px 12px;
 }
 
 /* Style for sliders */
 .stSlider .st-fx { /* Target the slider track */
-    background-color: #ccddee; /* Light blue track */
+    background-color: var(--accent-color); /* Accent color for track */
+    border-radius: 5px;
 }
 .stSlider .st-fo { /* Target the slider thumb */
-    background-color: #4CAF50; /* Green thumb */
+    background-color: var(--accent-color); /* Accent color for thumb */
+    border: 2px solid var(--secondary-bg); /* White border for contrast */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
 
 /* Style for buttons */
 .stButton > button {
-    background-color: #4CAF50; /* Green button */
-    color: white; /* White text */
-    border-radius: 5px;
+    background-color: var(--accent-color);
+    color: white;
+    border-radius: 8px;
     border: none;
-    padding: 10px 20px;
-    font-size: 16px;
+    padding: 12px 25px;
+    font-size: 17px;
+    font-weight: bold;
     cursor: pointer;
-    transition: background-color 0.3s;
+    transition: all 0.3s ease; /* Smooth transition for hover effects */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 .stButton > button:hover {
-    background-color: #45a049; /* Darker green on hover */
+    background-color: var(--header-color); /* Darker on hover */
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+    transform: translateY(-2px); /* Slight lift on hover */
 }
 
-/* Style for containers, if used for visual grouping */
+/* Style for containers used for visual grouping */
 .stContainer {
-    background-color: rgba(255, 255, 255, 0.85); /* Slightly transparent white background for sections */
-    padding: 20px;
-    border-radius: 10px;
-    margin-bottom: 20px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+    background-color: var(--secondary-bg); /* Use secondary background variable */
+    padding: 30px; /* More padding */
+    border-radius: 15px; /* More rounded */
+    margin-bottom: 30px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15); /* More prominent shadow for depth */
+    border: 1px solid rgba(0, 0, 0, 0.05); /* Very subtle border */
 }
 
-/* Specific styling for the prediction results section */
+/* Specific styling for the prediction results container */
 .prediction-results-container {
-    background-color: rgba(245, 255, 245, 0.9); /* Very light green background for results */
-    border: 1px solid #d4edda;
-    color: #155724;
+    background-color: rgba(144, 238, 144, 0.2); /* Very light green translucent */
+    border: 1px solid var(--accent-color);
+    color: var(--text-color);
 }
 
-/* Styling for success/info/error messages */
-.stAlert > div {
-    border-radius: 5px;
-    padding: 10px;
-    margin-bottom: 10px;
+/* --- Animated Bubbles Background --- */
+.circles{
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    z-index: -1; /* Send bubbles to the background */
+}
+
+.circles li{
+    position: absolute;
+    display: block;
+    list-style: none;
+    width: 20px;
+    height: 20px;
+    background: var(--bubble-color); /* Use bubble color variable */
+    border: 1px solid var(--bubble-border-color); /* Use bubble border color variable */
+    animation: animate 25s linear infinite;
+    bottom: -150px; /* Start below the viewport */
+    border-radius: 50%; /* Make them perfectly round */
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.2); /* Soft shadow for depth */
+    opacity: 0; /* Start invisible */
+}
+
+.circles li:nth-child(1){
+    left: 25%;
+    width: 80px;
+    height: 80px;
+    animation-delay: 0s;
+    animation-duration: 15s;
+    opacity: 0.7;
+}
+
+.circles li:nth-child(2){
+    left: 10%;
+    width: 20px;
+    height: 20px;
+    animation-delay: 2s;
+    animation-duration: 12s;
+    opacity: 0.5;
+}
+
+.circles li:nth-child(3){
+    left: 70%;
+    width: 20px;
+    height: 20px;
+    animation-delay: 4s;
+    animation-duration: 20s;
+    opacity: 0.6;
+}
+
+.circles li:nth-child(4){
+    left: 40%;
+    width: 60px;
+    height: 60px;
+    animation-delay: 0s;
+    animation-duration: 18s;
+    opacity: 0.8;
+}
+
+.circles li:nth-child(5){
+    left: 65%;
+    width: 20px;
+    height: 20px;
+    animation-delay: 0s;
+    animation-duration: 10s;
+    opacity: 0.4;
+}
+
+.circles li:nth-child(6){
+    left: 75%;
+    width: 110px;
+    height: 110px;
+    animation-delay: 3s;
+    animation-duration: 22s;
+    opacity: 0.9;
+}
+
+.circles li:nth-child(7){
+    left: 35%;
+    width: 150px;
+    height: 150px;
+    animation-delay: 7s;
+    animation-duration: 25s;
+    opacity: 0.7;
+}
+
+.circles li:nth-child(8){
+    left: 50%;
+    width: 25px;
+    height: 25px;
+    animation-delay: 15s;
+    animation-duration: 45s;
+    opacity: 0.5;
+}
+
+.circles li:nth-child(9){
+    left: 20%;
+    width: 15px;
+    height: 15px;
+    animation-delay: 2s;
+    animation-duration: 35s;
+    opacity: 0.6;
+}
+
+.circles li:nth-child(10){
+    left: 85%;
+    width: 150px;
+    height: 150px;
+    animation-delay: 0s;
+    animation-duration: 11s;
+    opacity: 0.8;
+}
+
+/* The actual animation */
+@keyframes animate {
+    0%{
+        transform: translateY(0) rotate(0deg);
+        opacity: 0.8;
+        border-radius: 0;
+    }
+    100%{
+        transform: translateY(-1000px) rotate(720deg);
+        opacity: 0;
+        border-radius: 50%;
+    }
 }
 </style>
 """
@@ -114,9 +267,24 @@ h1, h2, h3, h4, h5, h6 {
 # --- Initial Streamlit Page Setup (MUST be at the very top, called only once) ---
 st.set_page_config(page_title="Brucellosis Prediction App", layout="wide")
 
-# Inject the custom CSS for the dotted background animation early on
-st.markdown(DOTTED_BACKGROUND_CSS, unsafe_allow_html=True)
+# Inject the custom CSS for the animated bubble background and styling
+st.markdown(BUBBLE_BACKGROUND_CSS, unsafe_allow_html=True)
 
+# Add the HTML structure for the bubbles
+st.markdown("""
+<div class="circles">
+    <li></li>
+    <li></li>
+    <li></li>
+    <li></li>
+    <li></li>
+    <li></li>
+    <li></li>
+    <li></li>
+    <li></li>
+    <li></li>
+</div>
+""", unsafe_allow_html=True)
 
 # --- LOAD USER CREDENTIALS ---
 users = {}
@@ -260,7 +428,6 @@ else:
 
     st.sidebar.header("Input Features")
 
-    # Use a container for the input section
     with st.container():
         st.subheader("Input Animal Details")
         col1, col2 = st.columns(2)
@@ -295,11 +462,12 @@ else:
         }
 
     st.subheader("Provided Input:")
+    # This st.json output often looks better in its default dark background,
+    # let's try not to apply a background-color to it via generic containers
     st.json(input_data)
 
     if st.button("Predict Brucellosis Status"):
-        # Use a container for the prediction results
-        with st.container():
+        with st.container(): # Use container here for visual grouping of results
             st.subheader("Prediction Results:")
             with st.spinner('Making prediction...'):
                 prediction_output = predict_single_case(

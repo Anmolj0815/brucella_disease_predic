@@ -19,7 +19,7 @@ warnings.filterwarnings('ignore')
 # --- CONFIGURATION ---
 MODEL_ARTIFACTS_DIR = 'model_artifacts/'
 IMAGE_PATH = MODEL_ARTIFACTS_DIR + 'veterinary.jpg' # Path to your veterinary image
-USERS_FILE = MODEL_ARTIARTIFACTS_DIR + 'users.json' # Path to your user credentials file
+USERS_FILE = MODEL_ARTIFACTS_DIR + 'users.json' # Path to your user credentials file
 
 # --- HTML/CSS for Dotted Background (no image download needed) ---
 # This CSS creates a subtle dotted pattern.

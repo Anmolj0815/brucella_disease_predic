@@ -16,9 +16,6 @@ from sklearn.neighbors import KNeighborsClassifier
 
 warnings.filterwarnings('ignore')
 
-# Define the directory where model artifacts are stored
-MODEL_ARTIFACTS_DIR = 'model_artifacts/'
-IMAGE_PATH = MODEL_ARTIFACTS_DIR + 'veterinary.jpg' # Your image path and filename
 
 # Load the trained objects
 try:

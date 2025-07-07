@@ -6,12 +6,19 @@ import warnings
 from collections import Counter
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.preprocessing import LabelEncoder # Make sure LabelEncoder is imported
+from sklearn.preprocessing import LabelEncoder
+# Import necessary classifiers for type checking in predict_single_case
+from sklearn.neural_network import MLPClassifier
+from sklearn.svm import SVC
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+
 
 warnings.filterwarnings('ignore')
 
 # Define the directory where model artifacts are stored
 MODEL_ARTIFACTS_DIR = 'model_artifacts/'
+IMAGE_PATH = MODEL_ARTIFACTS_DIR + 'veterinary.jpg' # Your image path and filename
 
 # Load the trained objects
 try:
@@ -25,22 +32,32 @@ try:
         scaler = pickle.load(f)
     with open(MODEL_ARTIFACTS_DIR + 'feature_names.pkl', 'rb') as f:
         feature_names = pickle.load(f)
-    
+
     st.sidebar.success("✅ All model components loaded successfully!")
 
-except FileNotFoundError:
-    st.sidebar.error(f"❌ Required model files not found in '{MODEL_ARTIFACTS_DIR}'. Please ensure all .pkl files are in this directory.")
+except FileNotFoundError as e:
+    st.sidebar.error(f"❌ Required model file not found: {e}. Please ensure all .pkl files and the image are in the '{MODEL_ARTIFACTS_DIR}' directory (or update the path).")
     st.stop() # Stop the app if essential files are missing
 except Exception as e:
     st.sidebar.error(f"❌ Error loading model components: {e}")
     st.stop()
 
-# --- IMPORTANT CHANGE HERE ---
-# Get unique categories for dropdowns. Use the clean, stripped column names as keys.
-# The `df_processed.columns.str.strip()` in your training script means keys in le_dict
-# will likely NOT have leading/trailing spaces.
+# Streamlit App Layout
+st.set_page_config(page_title="Brucellosis Prediction App", layout="wide")
+
+# Display the veterinary image at the very top
+try:
+    st.image(IMAGE_PATH, caption="Caring for Animal Health", use_column_width=True)
+except FileNotFoundError:
+    st.warning(f"⚠️ Veterinary image not found at '{IMAGE_PATH}'. Please ensure 'veterinary.jpg' is in the '{MODEL_ARTIFACTS_DIR}' folder.")
+except Exception as e:
+    st.error(f"⚠️ Error loading veterinary image: {e}")
+
+st.title("🐂 Brucellosis Prediction Model")
+st.markdown("Enter the animal's details to predict its Brucellosis status.")
+
+# Get unique categories for dropdowns
 unique_breeds = sorted(list(le_dict.get('Breed species', LabelEncoder()).classes_))
-# Assuming ' Sex ' was stripped to 'Sex' during training before le_dict was created
 unique_sex = sorted(list(le_dict.get('Sex', LabelEncoder()).classes_)) # Changed from ' Sex ' to 'Sex'
 unique_abortion_history = sorted(list(le_dict.get('Abortion History (Yes No)', LabelEncoder()).classes_))
 unique_infertility = sorted(list(le_dict.get('Infertility Repeat breeder(Yes No)', LabelEncoder()).classes_))
@@ -53,65 +70,56 @@ unique_disposal = sorted(list(le_dict.get('Proper Disposal of Aborted Fetuses (Y
 
 def predict_single_case(input_dict, model, le_dict, le_target, scaler, feature_names):
     """Predict a single case with robust error handling for encoding."""
-    
+
     # Convert input to DataFrame
     input_df = pd.DataFrame([input_dict])
-    
-    # --- CRITICAL: Strip spaces from input_df columns to match trained features ---
+
+    # Strip spaces from input_df columns
     input_df.columns = input_df.columns.str.strip()
-    
-    # Pre-process 'Breed species' content to ensure consistent spacing
+
+    # Pre-process 'Breed species' content
     if 'Breed species' in input_df.columns:
         input_df['Breed species'] = input_df['Breed species'].astype(str).str.replace(r'\s+', ' ', regex=True).str.strip()
 
     # Encode categorical features
     for col in input_df.columns:
-        # Check if the column is in le_dict (which will now have stripped keys) and is an object type
-        if col in le_dict and input_df[col].dtype == 'object':
+        if col in le_dict and input_df.dtypes.get(col) == 'object':
             try:
-                input_df[col] = le_dict[col].transform(input_df[col])
+                input_df.loc[:, col] = le_dict.get(col).transform(input_df.loc[:, col])
             except ValueError as e:
-                st.error(f"❌ Error encoding column '{col}': The input value '{input_dict[col]}' is not a known category. Known categories: {list(le_dict[col].classes_)}")
+                st.error(f"❌ Error encoding column '{col}': The input value '{input_dict.get(col)}' is not a known category. Known categories: {list(le_dict.get(col).classes_)}")
                 return None
-    
+
     # Ensure all expected features are present, fill with 0 if not
-    for col in feature_names: # feature_names should also have stripped column names
+    for col in feature_names:
         if col not in input_df.columns:
-            input_df[col] = 0
-    
+            input_df.loc[:, col] = 0
+
     # Reorder columns to match training data's feature order
-    input_df = input_df[feature_names]
-    
+    input_df = input_df.reindex(columns=feature_names, fill_value=0)
+
     # Decide if scaling is needed based on the type of the 'best_model'
-    model_requires_scaling = isinstance(model, (type(best_model))) and any(
-        m_name in best_model.__class__.__name__ for m_name in ["MLPClassifier", "SVC", "LogisticRegression", "KNeighborsClassifier"]
-    )
+    # Import relevant classes at the top of the file to avoid NameError
+    model_requires_scaling = isinstance(model, (MLPClassifier, SVC, LogisticRegression, KNeighborsClassifier))
 
     if model_requires_scaling:
-        # Scale ALL features. The scaler was fitted on the entire X_train.
         input_df_scaled = scaler.transform(input_df)
     else:
-        input_df_scaled = input_df.values # Convert to numpy array directly if not scaling
+        input_df_scaled = input_df.values
 
     # Predict
     pred_class = model.predict(input_df_scaled)[0]
     pred_prob = model.predict_proba(input_df_scaled)[0]
-    
+
     # Convert back to original labels
     predicted_result = le_target.inverse_transform([pred_class])[0]
-    confidence = pred_prob[pred_class]
-    
+    confidence = pred_prob.max() # Using max probability as confidence
+
     return {
         'predicted_class': predicted_result,
         'confidence': confidence,
         'probabilities': dict(zip(le_target.classes_, pred_prob))
     }
-
-# Streamlit App Layout
-st.set_page_config(page_title="Brucellosis Prediction App", layout="wide")
-
-st.title("🐂 Brucellosis Prediction Model")
-st.markdown("Enter the animal's details to predict its Brucellosis status.")
 
 st.sidebar.header("Input Features")
 
@@ -121,8 +129,6 @@ col1, col2 = st.columns(2)
 with col1:
     age = st.slider("Age (Years)", 0, 20, 5)
     breed_species = st.selectbox("Breed/Species", options=unique_breeds)
-    # --- IMPORTANT: Pass the stripped version of column names to the input_data dict keys ---
-    # This means the dictionary keys should match how they appear after df.columns.str.strip()
     sex = st.selectbox("Sex", options=unique_sex)
     calvings = st.slider("Calvings", 0, 15, 1)
     abortion_history = st.selectbox("Abortion History (Yes/No)", options=unique_abortion_history)
@@ -137,9 +143,9 @@ with col2:
 
 
 input_data = {
-    'Age': age, # Changed from 'Age ' to 'Age'
+    'Age': age,
     'Breed species': breed_species,
-    'Sex': sex, # Changed from ' Sex ' to 'Sex'
+    'Sex': sex,
     'Calvings': calvings,
     'Abortion History (Yes No)': abortion_history,
     'Infertility Repeat breeder(Yes No)': infertility_rb,
@@ -181,4 +187,4 @@ if st.button("Predict Brucellosis Status"):
             st.error("Failed to make a prediction. Please check the input values and error messages above.")
 
 st.markdown("---")
-st.markdown("Developed with ❤️ for Veterinary Health By Anmol Jain Btech ECE Lnmiit Jaipur")
+st.markdown("Developed with ❤️ for Veterinary Health")

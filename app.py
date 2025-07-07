@@ -104,7 +104,6 @@ def load_model_artifacts():
         le_dict_path = os.path.join(model_dir, 'le_dict.pkl')
         le_target_path = os.path.join(model_dir, 'le_target.pkl')
         scaler_path = os.path.join(model_dir, 'scaler.pkl')
-        # feature_names_path = os.path.join(model_dir, 'feature_names.pkl') # No longer needed for loading
         df_clean_path = os.path.join(model_dir, 'df_clean.csv')
 
         # Define feature_names directly from the confirmed list
@@ -287,14 +286,11 @@ if submitted:
 
 
         # Reorder columns and add missing ones based on feature_names
-        # This is where the mismatch typically occurs if feature_names itself is wrong
         final_input_df_data = {}
         for col in feature_names:
             if col in input_df.columns:
                 final_input_df_data[col] = input_df[col].iloc[0]
             else:
-                # If a feature_name is missing from input_df (e.g., a form field was missing, or a column was dropped during training for some reason)
-                # It will be filled with 0. This needs to align with training script's handling of such cases.
                 final_input_df_data[col] = 0
         input_df = pd.DataFrame([final_input_df_data])
 
@@ -305,6 +301,12 @@ if submitted:
         if scaler is not None:
             numerical_cols_stripped = ['Age', 'Calvings']
             existing_numerical_cols = [col for col in numerical_cols_stripped if col in input_df.columns]
+
+            # >>> CRITICAL NEW DEBUG PRINT <<<
+            print(f"DEBUG: Columns being passed to scaler.transform(): {input_df[existing_numerical_cols].columns.tolist()}")
+            print(f"DEBUG: Dataframe head being passed to scaler.transform():\n{input_df[existing_numerical_cols].head().to_string()}")
+            # >>> END NEW DEBUG PRINT <<<
+
             if existing_numerical_cols:
                 input_df[existing_numerical_cols] = scaler.transform(input_df[existing_numerical_cols])
             print(f"DEBUG: input_df after scaling for numerical columns: {existing_numerical_cols}")
@@ -451,6 +453,12 @@ with st.expander("📁 Batch Prediction (Upload CSV)"):
                             if scaler is not None:
                                 numerical_cols_stripped = ['Age', 'Calvings']
                                 existing_numerical_cols = [col for col in numerical_cols_stripped if col in input_df_batch.columns]
+
+                                # >>> CRITICAL NEW DEBUG PRINT <<<
+                                print(f"DEBUG: Batch Columns being passed to scaler.transform(): {input_df_batch[existing_numerical_cols].columns.tolist()}")
+                                print(f"DEBUG: Batch Dataframe head being passed to scaler.transform():\n{input_df_batch[existing_numerical_cols].head().to_string()}")
+                                # >>> END NEW DEBUG PRINT <<<
+
                                 if existing_numerical_cols:
                                     input_df_batch[existing_numerical_cols] = scaler.transform(input_df_batch[existing_numerical_cols])
 

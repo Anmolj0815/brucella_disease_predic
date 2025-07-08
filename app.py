@@ -27,13 +27,13 @@ def inject_custom_css():
     """Inject custom CSS for beautiful background and styling"""
     st.markdown("""
     <style>
-    /* Main background with beautiful animated dots */
+    /* Main background with subtle animated dots */
     .stApp {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         position: relative;
     }
     
-    /* Beautiful animated dots pattern */
+    /* Animated background dots - fixed z-index issue */
     .stApp::before {
         content: '';
         position: fixed;
@@ -42,35 +42,26 @@ def inject_custom_css():
         width: 100%;
         height: 100%;
         background-image: 
-            radial-gradient(circle at 20% 20%, rgba(255,255,255,0.3) 3px, transparent 3px),
-            radial-gradient(circle at 80% 80%, rgba(255,255,255,0.2) 2px, transparent 2px),
-            radial-gradient(circle at 40% 60%, rgba(255,255,255,0.15) 2px, transparent 2px),
-            radial-gradient(circle at 60% 40%, rgba(255,255,255,0.1) 1px, transparent 1px),
-            radial-gradient(circle at 30% 90%, rgba(255,255,255,0.2) 2px, transparent 2px),
-            radial-gradient(circle at 90% 30%, rgba(255,255,255,0.15) 1px, transparent 1px);
-        background-size: 100px 100px, 150px 150px, 80px 80px, 60px 60px, 120px 120px, 90px 90px;
-        animation: floatDots 20s ease-in-out infinite;
+            radial-gradient(circle at 25% 25%, rgba(255,255,255,0.1) 2px, transparent 2px),
+            radial-gradient(circle at 75% 75%, rgba(255,255,255,0.1) 2px, transparent 2px),
+            radial-gradient(circle at 50% 25%, rgba(255,255,255,0.05) 1px, transparent 1px),
+            radial-gradient(circle at 25% 75%, rgba(255,255,255,0.05) 1px, transparent 1px);
+        background-size: 60px 60px, 80px 80px, 40px 40px, 50px 50px;
+        animation: float 15s ease-in-out infinite;
         z-index: -10;
         pointer-events: none;
     }
     
-    @keyframes floatDots {
-        0%, 100% { 
-            transform: translateY(0px) translateX(0px); 
-            opacity: 1;
-        }
-        25% { 
-            transform: translateY(-15px) translateX(10px); 
-            opacity: 0.8;
-        }
-        50% { 
-            transform: translateY(-5px) translateX(-8px); 
-            opacity: 0.9;
-        }
-        75% { 
-            transform: translateY(10px) translateX(5px); 
-            opacity: 0.7;
-        }
+    @keyframes float {
+        0%, 100% { transform: translateY(0px) translateX(0px); }
+        33% { transform: translateY(-10px) translateX(5px); }
+        66% { transform: translateY(5px) translateX(-5px); }
+    }
+    
+    /* Ensure main content is above background */
+    .main .block-container {
+        position: relative;
+        z-index: 1;
     }
     
     /* Login page styling */
@@ -108,76 +99,10 @@ def inject_custom_css():
         z-index: 10;
     }
     
-    /* JSON input styling */
-    .stJson {
-        background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%) !important;
-        border: 2px solid #e2e8f0 !important;
-        border-radius: 15px !important;
-        padding: 1.5rem !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
-        font-family: 'Courier New', monospace !important;
-        font-size: 14px !important;
-        color: #2d3748 !important;
-    }
-    
-    /* JSON content styling */
-    .stJson pre {
-        background: transparent !important;
-        border: none !important;
-        color: #2d3748 !important;
-        font-weight: 500 !important;
-    }
-    
-    /* JSON keys styling */
-    .stJson .json-key {
-        color: #3182ce !important;
-        font-weight: 600 !important;
-    }
-    
-    /* JSON values styling */
-    .stJson .json-string {
-        color: #38a169 !important;
-    }
-    
-    .stJson .json-number {
-        color: #d69e2e !important;
-    }
-    
-    /* Input fields styling */
-    .stSelectbox > div > div > div {
-        background: rgba(255,255,255,0.9) !important;
-        border-radius: 10px !important;
-        border: 2px solid #e2e8f0 !important;
-        color: #2d3748 !important;
-    }
-    
-    .stSlider > div > div > div {
-        background: rgba(255,255,255,0.9) !important;
-        border-radius: 10px !important;
-    }
-    
-    /* Expander styling for JSON */
-    .streamlit-expanderContent {
-        background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%) !important;
-        border-radius: 15px !important;
-        padding: 1.5rem !important;
-        border: 2px solid #e2e8f0 !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
-    }
-    
-    /* Code block styling */
-    .stCode {
-        background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%) !important;
-        border: 2px solid #e2e8f0 !important;
-        border-radius: 15px !important;
-        padding: 1.5rem !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
-    }
-    
-    .stCode pre {
-        color: #2d3748 !important;
-        font-weight: 500 !important;
-        background: transparent !important;
+    /* All streamlit elements should be above background */
+    .stApp > div {
+        position: relative;
+        z-index: 5;
     }
     
     /* Title styling */
@@ -477,49 +402,7 @@ else:
     }
 
     st.subheader("📊 Provided Input:")
-    
-    # Create a beautiful custom JSON display
-    st.markdown("""
-    <div style="
-        background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
-        border: 2px solid #e2e8f0;
-        border-radius: 15px;
-        padding: 1.5rem;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        font-family: 'Courier New', monospace;
-        font-size: 14px;
-        color: #2d3748;
-        margin: 1rem 0;
-    ">
-        <pre style="margin: 0; background: transparent; border: none; color: #2d3748; font-weight: 500;">
-{
-    <span style="color: #3182ce; font-weight: 600;">"Age"</span>: <span style="color: #d69e2e;">{}</span>,
-    <span style="color: #3182ce; font-weight: 600;">"Breed species"</span>: <span style="color: #38a169;">"{}"</span>,
-    <span style="color: #3182ce; font-weight: 600;">"Sex"</span>: <span style="color: #38a169;">"{}"</span>,
-    <span style="color: #3182ce; font-weight: 600;">"Calvings"</span>: <span style="color: #d69e2e;">{}</span>,
-    <span style="color: #3182ce; font-weight: 600;">"Abortion History (Yes No)"</span>: <span style="color: #38a169;">"{}"</span>,
-    <span style="color: #3182ce; font-weight: 600;">"Infertility Repeat breeder(Yes No)"</span>: <span style="color: #38a169;">"{}"</span>,
-    <span style="color: #3182ce; font-weight: 600;">"Brucella vaccination status (Yes No)"</span>: <span style="color: #38a169;">"{}"</span>,
-    <span style="color: #3182ce; font-weight: 600;">"Sample Type(Serum Milk)"</span>: <span style="color: #38a169;">"{}"</span>,
-    <span style="color: #3182ce; font-weight: 600;">"Test Type (RBPT ELISA MRT)"</span>: <span style="color: #38a169;">"{}"</span>,
-    <span style="color: #3182ce; font-weight: 600;">"Retained Placenta Stillbirth(Yes No No Data)"</span>: <span style="color: #38a169;">"{}"</span>,
-    <span style="color: #3182ce; font-weight: 600;">"Proper Disposal of Aborted Fetuses (Yes No)"</span>: <span style="color: #38a169;">"{}"</span>
-}
-        </pre>
-    </div>
-    """.format(
-        input_data['Age'],
-        input_data['Breed species'],
-        input_data['Sex'],
-        input_data['Calvings'],
-        input_data['Abortion History (Yes No)'],
-        input_data['Infertility Repeat breeder(Yes No)'],
-        input_data['Brucella vaccination status (Yes No)'],
-        input_data['Sample Type(Serum Milk)'],
-        input_data['Test Type (RBPT ELISA MRT)'],
-        input_data['Retained Placenta Stillbirth(Yes No No Data)'],
-        input_data['Proper Disposal of Aborted Fetuses (Yes No)']
-    ), unsafe_allow_html=True)
+    st.json(input_data)
 
     if st.button("🎯 Predict Brucellosis Status"):
         st.subheader("📈 Prediction Results:")

@@ -27,14 +27,13 @@ def inject_custom_css():
     """Inject custom CSS for beautiful background and styling"""
     st.markdown("""
     <style>
-    /* Main background with animated dots */
+    /* Main background with subtle animated dots */
     .stApp {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         position: relative;
-        overflow: hidden;
     }
     
-    /* Animated background dots */
+    /* Animated background dots - fixed z-index issue */
     .stApp::before {
         content: '';
         position: fixed;
@@ -43,18 +42,26 @@ def inject_custom_css():
         width: 100%;
         height: 100%;
         background-image: 
-            radial-gradient(circle at 20% 20%, rgba(255,255,255,0.1) 2px, transparent 2px),
-            radial-gradient(circle at 80% 80%, rgba(255,255,255,0.1) 2px, transparent 2px),
-            radial-gradient(circle at 40% 40%, rgba(255,255,255,0.05) 1px, transparent 1px),
-            radial-gradient(circle at 60% 60%, rgba(255,255,255,0.05) 1px, transparent 1px);
-        background-size: 50px 50px, 75px 75px, 25px 25px, 35px 35px;
-        animation: float 20s ease-in-out infinite;
-        z-index: -1;
+            radial-gradient(circle at 25% 25%, rgba(255,255,255,0.1) 2px, transparent 2px),
+            radial-gradient(circle at 75% 75%, rgba(255,255,255,0.1) 2px, transparent 2px),
+            radial-gradient(circle at 50% 25%, rgba(255,255,255,0.05) 1px, transparent 1px),
+            radial-gradient(circle at 25% 75%, rgba(255,255,255,0.05) 1px, transparent 1px);
+        background-size: 60px 60px, 80px 80px, 40px 40px, 50px 50px;
+        animation: float 15s ease-in-out infinite;
+        z-index: -10;
+        pointer-events: none;
     }
     
     @keyframes float {
-        0%, 100% { transform: translateY(0px) rotate(0deg); }
-        50% { transform: translateY(-20px) rotate(180deg); }
+        0%, 100% { transform: translateY(0px) translateX(0px); }
+        33% { transform: translateY(-10px) translateX(5px); }
+        66% { transform: translateY(5px) translateX(-5px); }
+    }
+    
+    /* Ensure main content is above background */
+    .main .block-container {
+        position: relative;
+        z-index: 1;
     }
     
     /* Login page styling */
@@ -67,6 +74,8 @@ def inject_custom_css():
         border: 1px solid rgba(255,255,255,0.2);
         margin: 2rem auto;
         max-width: 800px;
+        position: relative;
+        z-index: 10;
     }
     
     /* Main app content styling */
@@ -78,12 +87,22 @@ def inject_custom_css():
         box-shadow: 0 15px 35px rgba(0,0,0,0.1);
         backdrop-filter: blur(10px);
         border: 1px solid rgba(255,255,255,0.2);
+        position: relative;
+        z-index: 10;
     }
     
     /* Sidebar styling */
     .css-1d391kg {
         background: rgba(255, 255, 255, 0.9);
         backdrop-filter: blur(10px);
+        position: relative;
+        z-index: 10;
+    }
+    
+    /* All streamlit elements should be above background */
+    .stApp > div {
+        position: relative;
+        z-index: 5;
     }
     
     /* Title styling */
@@ -212,35 +231,8 @@ def load_image_as_base64(image_path):
         return None
 
 # --- AUTHENTICATION FUNCTION ---
-def login_page():
-    # Load and display veterinary image
-    img_base64 = load_image_as_base64(VETERINARY_IMAGE_PATH)
-    
-    st.markdown('<div class="login-container">', unsafe_allow_html=True)
-    
-    # Title
-    st.markdown('<h1 class="main-title">🐂 Brucellosis Prediction System</h1>', unsafe_allow_html=True)
-    
-    # Display image if available
-    if img_base64:
-        st.markdown(f'''
-        <div class="image-container">
-            <img src="data:image/jpeg;base64,{img_base64}" alt="Veterinary Image" style="max-width: 600px;">
-        </div>
-        ''', unsafe_allow_html=True)
-    
-    # Welcome text
-    st.markdown('''
-    <div class="welcome-text">
-        <p>Welcome to the Advanced Brucellosis Prediction System</p>
-        <p>A comprehensive tool for veterinary professionals to predict and analyze Brucellosis in livestock</p>
-        <p>Please login to access the prediction system</p>
-    </div>
-    ''', unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Login form in sidebar
+def login_sidebar():
+    """Handle login form in sidebar"""
     st.sidebar.subheader("🔐 Login")
     email = st.sidebar.text_input("📧 Email")
     password = st.sidebar.text_input("🔒 Password", type="password")
@@ -269,7 +261,34 @@ st.set_page_config(page_title="Brucellosis Prediction App", layout="wide")
 inject_custom_css()
 
 if not st.session_state['logged_in']:
-    login_page()
+    # Show login page content
+    st.markdown('<div class="login-container">', unsafe_allow_html=True)
+    
+    # Title
+    st.markdown('<h1 class="main-title">🐂 Brucellosis Prediction System</h1>', unsafe_allow_html=True)
+    
+    # Load and display veterinary image
+    img_base64 = load_image_as_base64(VETERINARY_IMAGE_PATH)
+    if img_base64:
+        st.markdown(f'''
+        <div class="image-container">
+            <img src="data:image/jpeg;base64,{img_base64}" alt="Veterinary Image" style="max-width: 600px;">
+        </div>
+        ''', unsafe_allow_html=True)
+    
+    # Welcome text
+    st.markdown('''
+    <div class="welcome-text">
+        <p>Welcome to the Advanced Brucellosis Prediction System</p>
+        <p>A comprehensive tool for veterinary professionals to predict and analyze Brucellosis in livestock</p>
+        <p>Please login to access the prediction system</p>
+    </div>
+    ''', unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Call login function for sidebar
+    login_sidebar()
 else:
     # --- MAIN APP CONTENT ---
     st.markdown('<div class="main-content">', unsafe_allow_html=True)

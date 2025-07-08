@@ -12,171 +12,14 @@ from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 import json
-from passlib.hash import bcrypt
-import base64
+from passlib.hash import bcrypt # <--- NEW: Import bcrypt for hashing
 
 warnings.filterwarnings('ignore')
 
 # --- CONFIGURATION ---
 MODEL_ARTIFACTS_DIR = 'model_artifacts/'
+# Removed IMAGE_PATH line as you requested to remove the image
 USERS_FILE = MODEL_ARTIFACTS_DIR + 'users.json'
-VETERINARY_IMAGE_PATH = MODEL_ARTIFACTS_DIR + 'veterinary.jpg'
-
-# --- CSS STYLING ---
-def inject_custom_css():
-    """Inject custom CSS for beautiful background and styling"""
-    st.markdown("""
-    <style>
-    /* Main background with subtle animated dots */
-    .stApp {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        position: relative;
-    }
-    
-    /* Animated background dots - fixed z-index issue */
-    .stApp::before {
-        content: '';
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-image: 
-            radial-gradient(circle at 25% 25%, rgba(255,255,255,0.1) 2px, transparent 2px),
-            radial-gradient(circle at 75% 75%, rgba(255,255,255,0.1) 2px, transparent 2px),
-            radial-gradient(circle at 50% 25%, rgba(255,255,255,0.05) 1px, transparent 1px),
-            radial-gradient(circle at 25% 75%, rgba(255,255,255,0.05) 1px, transparent 1px);
-        background-size: 60px 60px, 80px 80px, 40px 40px, 50px 50px;
-        animation: float 15s ease-in-out infinite;
-        z-index: -10;
-        pointer-events: none;
-    }
-    
-    @keyframes float {
-        0%, 100% { transform: translateY(0px) translateX(0px); }
-        33% { transform: translateY(-10px) translateX(5px); }
-        66% { transform: translateY(5px) translateX(-5px); }
-    }
-    
-    /* Ensure main content is above background */
-    .main .block-container {
-        position: relative;
-        z-index: 1;
-    }
-    
-    /* Login page styling */
-    .login-container {
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 20px;
-        padding: 2rem;
-        box-shadow: 0 15px 35px rgba(0,0,0,0.1);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255,255,255,0.2);
-        margin: 2rem auto;
-        max-width: 800px;
-        position: relative;
-        z-index: 10;
-    }
-    
-    /* Main app content styling */
-    .main-content {
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 20px;
-        padding: 2rem;
-        margin: 1rem;
-        box-shadow: 0 15px 35px rgba(0,0,0,0.1);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255,255,255,0.2);
-        position: relative;
-        z-index: 10;
-    }
-    
-    /* Sidebar styling */
-    .css-1d391kg {
-        background: rgba(255, 255, 255, 0.9);
-        backdrop-filter: blur(10px);
-        position: relative;
-        z-index: 10;
-    }
-    
-    /* All streamlit elements should be above background */
-    .stApp > div {
-        position: relative;
-        z-index: 5;
-    }
-    
-    /* Title styling */
-    .main-title {
-        color: #4a5568;
-        text-align: center;
-        font-size: 2.5rem;
-        margin-bottom: 1rem;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    /* Welcome text styling */
-    .welcome-text {
-        color: #2d3748;
-        text-align: center;
-        font-size: 1.2rem;
-        margin-bottom: 2rem;
-        line-height: 1.6;
-    }
-    
-    /* Image container */
-    .image-container {
-        text-align: center;
-        margin: 2rem 0;
-    }
-    
-    .image-container img {
-        border-radius: 15px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        max-width: 100%;
-        height: auto;
-    }
-    
-    /* Button styling */
-    .stButton > button {
-        background: linear-gradient(45deg, #667eea, #764ba2);
-        color: white;
-        border: none;
-        border-radius: 25px;
-        padding: 0.75rem 2rem;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-    }
-    
-    .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.3);
-    }
-    
-    /* Prediction result styling */
-    .prediction-success {
-        background: linear-gradient(45deg, #48bb78, #38a169);
-        color: white;
-        padding: 1rem;
-        border-radius: 10px;
-        text-align: center;
-        margin: 1rem 0;
-        font-size: 1.1rem;
-        font-weight: 600;
-    }
-    
-    .prediction-info {
-        background: linear-gradient(45deg, #4299e1, #3182ce);
-        color: white;
-        padding: 1rem;
-        border-radius: 10px;
-        text-align: center;
-        margin: 1rem 0;
-        font-size: 1.1rem;
-        font-weight: 600;
-    }
-    </style>
-    """, unsafe_allow_html=True)
 
 # --- LOAD USER CREDENTIALS ---
 users = {}
@@ -217,91 +60,43 @@ except Exception as e:
     st.sidebar.error(f"❌ Error loading model components: {e}")
     st.stop()
 
-# --- FUNCTION TO LOAD AND ENCODE IMAGE ---
-def load_image_as_base64(image_path):
-    """Load image and convert to base64 for embedding"""
-    try:
-        with open(image_path, "rb") as img_file:
-            return base64.b64encode(img_file.read()).decode()
-    except FileNotFoundError:
-        st.warning(f"⚠️ Image not found at {image_path}")
-        return None
-    except Exception as e:
-        st.warning(f"⚠️ Error loading image: {e}")
-        return None
-
 # --- AUTHENTICATION FUNCTION ---
-def login_sidebar():
-    """Handle login form in sidebar"""
-    st.sidebar.subheader("🔐 Login")
-    email = st.sidebar.text_input("📧 Email")
-    password = st.sidebar.text_input("🔒 Password", type="password")
+def login_page():
+    st.sidebar.subheader("Login")
+    email = st.sidebar.text_input("Email")
+    password = st.sidebar.text_input("Password", type="password")
 
-    if st.sidebar.button("🚀 Login"):
+    if st.sidebar.button("Login"):
         if email in users:
+            # <--- IMPORTANT CHANGE HERE: Use bcrypt.verify()
             if bcrypt.verify(password, users[email]):
                 st.session_state['logged_in'] = True
                 st.session_state['username'] = email
-                st.sidebar.success("✅ Logged in successfully!")
+                st.sidebar.success("Logged in successfully!")
                 st.rerun()
             else:
-                st.sidebar.error("❌ Invalid email or password.")
+                st.sidebar.error("Invalid email or password.")
                 st.session_state['logged_in'] = False
         else:
-            st.sidebar.error("❌ Invalid email or password.")
+            st.sidebar.error("Invalid email or password.")
             st.session_state['logged_in'] = False
 
     st.sidebar.markdown("---")
     st.sidebar.info("Please enter your registered email and password to access the app.")
 
 # --- MAIN APP LOGIC ---
-st.set_page_config(page_title="Brucellosis Prediction App", layout="wide")
-
-# Inject custom CSS
-inject_custom_css()
+st.set_page_config(page_title="Brucellosis Prediction App", layout="wide") # Set config once at the top
 
 if not st.session_state['logged_in']:
-    # Show login page content
-    st.markdown('<div class="login-container">', unsafe_allow_html=True)
-    
-    # Title
-    st.markdown('<h1 class="main-title">🐂 Brucellosis Prediction System</h1>', unsafe_allow_html=True)
-    
-    # Load and display veterinary image
-    img_base64 = load_image_as_base64(VETERINARY_IMAGE_PATH)
-    if img_base64:
-        st.markdown(f'''
-        <div class="image-container">
-            <img src="data:image/jpeg;base64,{img_base64}" alt="Veterinary Image" style="max-width: 600px;">
-        </div>
-        ''', unsafe_allow_html=True)
-    
-    # Welcome text
-    st.markdown('''
-    <div class="welcome-text">
-        <p>Welcome to the Advanced Brucellosis Prediction System</p>
-        <p>A comprehensive tool for veterinary professionals to predict and analyze Brucellosis in livestock</p>
-        <p>Please login to access the prediction system</p>
-    </div>
-    ''', unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Call login function for sidebar
-    login_sidebar()
+    st.title("Welcome to Brucellosis Prediction App")
+    # No image here as requested
+    login_page()
 else:
-    # --- MAIN APP CONTENT ---
-    st.markdown('<div class="main-content">', unsafe_allow_html=True)
-    
-    st.markdown('<h1 class="main-title">🐂 Brucellosis Prediction Model</h1>', unsafe_allow_html=True)
-    st.markdown(f'<div class="welcome-text">Welcome, <strong>{st.session_state["username"]}</strong>! Enter the animal\'s details to predict its Brucellosis status.</div>', unsafe_allow_html=True)
+    # --- APP CONTENT (Your existing code goes here) ---
+    st.title("🐂 Brucellosis Prediction Model")
+    st.markdown(f"Welcome, **{st.session_state['username']}**! Enter the animal's details to predict its Brucellosis status.")
 
-    # Logout button
-    if st.sidebar.button("🚪 Logout"):
-        st.session_state['logged_in'] = False
-        st.session_state['username'] = None
-        st.rerun()
-    
+    st.sidebar.button("Logout", on_click=lambda: st.session_state.update(logged_in=False, username=None))
     st.sidebar.markdown("---")
 
     # Get unique categories for dropdowns
@@ -314,6 +109,7 @@ else:
     unique_test_type = sorted(list(le_dict.get('Test Type (RBPT ELISA MRT)', LabelEncoder()).classes_))
     unique_retained_placenta = sorted(list(le_dict.get('Retained Placenta Stillbirth(Yes No No Data)', LabelEncoder()).classes_))
     unique_disposal = sorted(list(le_dict.get('Proper Disposal of Aborted Fetuses (Yes No)', LabelEncoder()).classes_))
+
 
     def predict_single_case(input_dict, model, le_dict, le_target, scaler, feature_names):
         """Predict a single case with robust error handling for encoding."""
@@ -367,25 +163,26 @@ else:
             'probabilities': dict(zip(le_target.classes_, pred_prob))
         }
 
-    st.sidebar.header("🔍 Input Features")
+    st.sidebar.header("Input Features")
 
     # Collect user input using columns for better layout
     col1, col2 = st.columns(2)
 
     with col1:
-        age = st.slider("🎂 Age (Years)", 0, 20, 5)
-        breed_species = st.selectbox("🐄 Breed/Species", options=unique_breeds)
-        sex = st.selectbox("⚥ Sex", options=unique_sex)
-        calvings = st.slider("🐮 Calvings", 0, 15, 1)
-        abortion_history = st.selectbox("📋 Abortion History", options=unique_abortion_history)
+        age = st.slider("Age (Years)", 0, 20, 5)
+        breed_species = st.selectbox("Breed/Species", options=unique_breeds)
+        sex = st.selectbox("Sex", options=unique_sex)
+        calvings = st.slider("Calvings", 0, 15, 1)
+        abortion_history = st.selectbox("Abortion History (Yes/No)", options=unique_abortion_history)
 
     with col2:
-        infertility_rb = st.selectbox("🔄 Infertility/Repeat Breeder", options=unique_infertility)
-        vaccination_status = st.selectbox("💉 Brucella Vaccination Status", options=unique_vaccination_status)
-        sample_type = st.selectbox("🧪 Sample Type", options=unique_sample_type)
-        test_type = st.selectbox("🔬 Test Type", options=unique_test_type)
-        retained_placenta = st.selectbox("⚠️ Retained Placenta/Stillbirth", options=unique_retained_placenta)
-        proper_disposal = st.selectbox("🗑️ Proper Disposal of Aborted Fetuses", options=unique_disposal)
+        infertility_rb = st.selectbox("Infertility/Repeat Breeder (Yes/No)", options=unique_infertility)
+        vaccination_status = st.selectbox("Brucella Vaccination Status (Yes/No)", options=unique_vaccination_status)
+        sample_type = st.selectbox("Sample Type (Serum/Milk)", options=unique_sample_type)
+        test_type = st.selectbox("Test Type (RBPT/ELISA/MRT)", options=unique_test_type)
+        retained_placenta = st.selectbox("Retained Placenta/Stillbirth", options=unique_retained_placenta)
+        proper_disposal = st.selectbox("Proper Disposal of Aborted Fetuses (Yes No)", options=unique_disposal)
+
 
     input_data = {
         'Age': age,
@@ -401,38 +198,35 @@ else:
         'Proper Disposal of Aborted Fetuses (Yes No)': proper_disposal
     }
 
-    st.subheader("📊 Provided Input:")
+    st.subheader("Provided Input:")
     st.json(input_data)
 
-    if st.button("🎯 Predict Brucellosis Status"):
-        st.subheader("📈 Prediction Results:")
-        with st.spinner('🔄 Making prediction...'):
+    if st.button("Predict Brucellosis Status"):
+        st.subheader("Prediction Results:")
+        with st.spinner('Making prediction...'):
             prediction_output = predict_single_case(
                 input_data, best_model, le_dict, le_target, scaler, feature_names
             )
 
             if prediction_output:
-                st.markdown(f'<div class="prediction-success">🎯 Predicted Result: {prediction_output["predicted_class"]}</div>', unsafe_allow_html=True)
-                st.markdown(f'<div class="prediction-info">📊 Confidence: {prediction_output["confidence"]:.2%}</div>', unsafe_allow_html=True)
+                st.success(f"**Predicted Result:** {prediction_output['predicted_class']}")
+                st.info(f"**Confidence:** {prediction_output['confidence']:.2%}")
 
                 st.write("---")
-                st.subheader("📋 Class-wise Probabilities:")
+                st.subheader("Class-wise Probabilities:")
                 prob_df = pd.DataFrame.from_dict(prediction_output['probabilities'], orient='index', columns=['Probability'])
                 prob_df = prob_df.sort_values(by='Probability', ascending=False)
                 st.dataframe(prob_df.style.format("{:.2%}"))
 
                 # Visualizing probabilities
-                fig, ax = plt.subplots(figsize=(10, 6))
+                fig, ax = plt.subplots(figsize=(8, 4))
                 sns.barplot(x=prob_df.index, y=prob_df['Probability'], palette='viridis', ax=ax)
-                ax.set_title("Predicted Class Probabilities", fontsize=16, fontweight='bold')
-                ax.set_ylabel("Probability", fontsize=12)
-                ax.set_xlabel("Brucellosis Status", fontsize=12)
-                plt.xticks(rotation=45)
-                plt.tight_layout()
+                ax.set_title("Predicted Class Probabilities")
+                ax.set_ylabel("Probability")
+                ax.set_xlabel("Brucellosis Status")
                 st.pyplot(fig)
             else:
-                st.error("❌ Failed to make a prediction. Please check the input values and error messages above.")
+                st.error("Failed to make a prediction. Please check the input values and error messages above.")
 
     st.markdown("---")
-    st.markdown('<div class="welcome-text">🩺 Developed with ❤️ for Veterinary Health</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("Developed with ❤️ for Veterinary Health")

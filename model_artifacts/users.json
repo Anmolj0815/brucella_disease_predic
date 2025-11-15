@@ -1,20 +1,16 @@
-{
-  "druditjainvet@gmail.com": "$2b$12$2QqRN9/Nh33hSpetUtp01.A2SsZy.thrgG3Qnkk1Z0EVNGT6XXFKi"
-}
-
 from passlib.hash import pbkdf2_sha256
 import json
 
-# Replace with your actual password
 password = "your_secret_password" 
 
-# Generate the new hash
+ Generate the new hash
 new_hash = pbkdf2_sha256.hash(password) 
 
 print(f"Password: {password}")
 print(f"New Hash: {new_hash}")
 
-# Your new users.json should look like this:
-# {
-#     "druditjainvet@gmail.com": "$2b$12$2QqRN9/Nh33hSpetUtp01.A2SsZy.thrgG3Qnkk1Z0EVNGT6XXFKi", # <--- The new hash goes here
-# }
+ Your new users.json should look like this:
+ {
+     "druditjainvet@gmail.com": "$2b$12$2QqRN9/Nh33hSpetUtp01.A2SsZy.thrgG3Qnkk1Z0EVNGT6XXFKi", # <--- The new hash goes here
+ }
+

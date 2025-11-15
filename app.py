@@ -12,13 +12,13 @@ from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 import json
-from passlib.hash import bcrypt # <--- NEW: Import bcrypt for hashing
+# <--- IMPORTANT CHANGE HERE: Switched from bcrypt to pbkdf2_sha256 for better environment compatibility
+from passlib.hash import pbkdf2_sha256 
 
 warnings.filterwarnings('ignore')
 
 # --- CONFIGURATION ---
 MODEL_ARTIFACTS_DIR = 'model_artifacts/'
-# Removed IMAGE_PATH line as you requested to remove the image
 USERS_FILE = MODEL_ARTIFACTS_DIR + 'users.json'
 
 # --- LOAD USER CREDENTIALS ---
@@ -68,8 +68,8 @@ def login_page():
 
     if st.sidebar.button("Login"):
         if email in users:
-            # <--- IMPORTANT CHANGE HERE: Use bcrypt.verify()
-            if bcrypt.verify(password, users[email]):
+            # <--- THE CRITICAL FIX: Use pbkdf2_sha256.verify()
+            if pbkdf2_sha256.verify(password, users[email]):
                 st.session_state['logged_in'] = True
                 st.session_state['username'] = email
                 st.sidebar.success("Logged in successfully!")
@@ -89,7 +89,6 @@ st.set_page_config(page_title="Brucellosis Prediction App", layout="wide") # Set
 
 if not st.session_state['logged_in']:
     st.title("Welcome to Brucellosis Prediction App")
-    # No image here as requested
     login_page()
 else:
     # --- APP CONTENT (Your existing code goes here) ---
@@ -100,6 +99,7 @@ else:
     st.sidebar.markdown("---")
 
     # Get unique categories for dropdowns
+    # Added checks to ensure le_dict keys exist before accessing .classes_
     unique_breeds = sorted(list(le_dict.get('Breed species', LabelEncoder()).classes_))
     unique_sex = sorted(list(le_dict.get('Sex', LabelEncoder()).classes_))
     unique_abortion_history = sorted(list(le_dict.get('Abortion History (Yes No)', LabelEncoder()).classes_))

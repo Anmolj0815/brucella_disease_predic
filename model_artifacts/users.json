@@ -1,16 +1,6 @@
-from passlib.hash import pbkdf2_sha256
-import json
 
-password = "your_secret_password" 
-
- Generate the new hash
-new_hash = pbkdf2_sha256.hash(password) 
-
-print(f"Password: {password}")
-print(f"New Hash: {new_hash}")
-
- Your new users.json should look like this:
  {
-     "druditjainvet@gmail.com": "$2b$12$2QqRN9/Nh33hSpetUtp01.A2SsZy.thrgG3Qnkk1Z0EVNGT6XXFKi", # <--- The new hash goes here
+     "druditjainvet@gmail.com": "$pbkdf2-sha256$29000$yfl/b8259z6ntPae09rbew$tkRJoboY.sff1Fg9B..MvVH/XzDd6CZIKTH8OKDPVo8", # <--- The new hash goes here
  }
+
 

@@ -20,34 +20,46 @@ warnings.filterwarnings('ignore')
 
 # --- GEMINI CONFIGURATION ---
 ai_enabled = False
+gemini_model = None
+
 if "GEMINI_API_KEY" in st.secrets:
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         
-        # Try multiple model names in order of preference
-        model_names = [
-            'gemini-1.5-flash',
-            'gemini-1.5-pro',
-            'gemini-pro',
-            'models/gemini-1.5-flash',
-            'models/gemini-1.5-pro',
-            'models/gemini-pro'
-        ]
-        
-        gemini_model = None
-        for model_name in model_names:
-            try:
-                gemini_model = genai.GenerativeModel(model_name=model_name)
-                # Test if the model works
-                test_response = gemini_model.generate_content("Hello")
+        # First, list all available models
+        try:
+            available_models = []
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    available_models.append(m.name)
+            
+            if available_models:
+                st.sidebar.info(f"📋 Available models: {', '.join(available_models[:3])}")
+                
+                # Try to use the first available model
+                model_to_use = available_models[0]
+                gemini_model = genai.GenerativeModel(model_name=model_to_use)
                 ai_enabled = True
-                st.sidebar.success(f"✅ AI enabled with model: {model_name}")
-                break
-            except Exception as model_error:
-                continue
-        
-        if not ai_enabled:
-            st.sidebar.warning("⚠️ Could not initialize Gemini model. AI advice disabled.")
+                st.sidebar.success(f"✅ AI enabled with: {model_to_use}")
+            else:
+                st.sidebar.warning("⚠️ No models found with generateContent support.")
+                
+        except Exception as list_error:
+            st.sidebar.error(f"Could not list models: {list_error}")
+            
+            # Fallback: try common model names without testing
+            model_names = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
+            for model_name in model_names:
+                try:
+                    gemini_model = genai.GenerativeModel(model_name=model_name)
+                    ai_enabled = True
+                    st.sidebar.success(f"✅ AI enabled (fallback): {model_name}")
+                    break
+                except:
+                    continue
+            
+            if not ai_enabled:
+                st.sidebar.warning("⚠️ Could not initialize Gemini. AI advice disabled.")
             
     except Exception as e:
         st.sidebar.error(f"AI Setup Error: {e}")

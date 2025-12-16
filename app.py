@@ -79,7 +79,12 @@ translations = {
         "chart_title": "Class Distribution", "logout": "Logout", "login_sub": "Login",
         "ai_advice_header": "🤖 AI Veterinary Consultation",
         "ai_loading": "Analyzing data and generating suggestions...",
-        "system_prompt": "You are a senior veterinary expert. Analyzing animal data: {}. Prediction Result: {}. Confidence: {}%. If result is Positive, strongly advise immediate isolation and confirmatory lab testing (RBPT/ELISA). Provide 3-4 clear, actionable steps for the farmer in English."
+        "system_prompt": "You are a senior veterinary expert. Analyzing animal data: {}. Prediction Result: {}. Confidence: {}%. If result is Positive, strongly advise immediate isolation and confirmatory lab testing (RBPT/ELISA). Provide 3-4 clear, actionable steps for the farmer in English.",
+        "chatbot_button": "💬 Ask AI Chikitsak",
+        "chatbot_title": "🩺 AI Chikitsak - Your Veterinary Assistant",
+        "chatbot_subtitle": "Ask me anything about Brucellosis, milk safety, and animal health",
+        "chat_placeholder": "Ask your question about Brucellosis, symptoms, prevention, milk safety...",
+        "chat_system": "You are 'AI Chikitsak' (AI Doctor), an expert veterinary consultant specializing in Brucellosis and dairy animal health. Answer questions about: Brucellosis disease, symptoms in animals, transmission, prevention, vaccination, milk safety, treatment, diagnosis tests (RBPT/ELISA/MRT), farm biosecurity, and general cattle/buffalo health. Provide clear, practical advice in English. Keep answers concise (3-5 sentences) unless detailed explanation is requested."
     },
     "Hindi": {
         "welcome": "ब्रुसेलोसिस भविष्यवाणी ऐप में आपका स्वागत है",
@@ -97,7 +102,12 @@ translations = {
         "chart_title": "संभावना चार्ट", "logout": "लॉगआउट", "login_sub": "लॉगिन",
         "ai_advice_header": "🤖 AI पशु चिकित्सक सलाह",
         "ai_loading": "डेटा का विश्लेषण और सुझाव तैयार किए जा रहे हैं...",
-        "system_prompt": "आप एक वरिष्ठ पशु चिकित्सा विशेषज्ञ हैं। पशु डेटा: {}. भविष्यवाणी परिणाम: {}. भरोसा: {}%. यदि परिणाम पॉजिटिव है, तो तुरंत पशु को अलग करने (Isolation) और लैब टेस्टिंग (RBPT/ELISA) की सलाह दें। किसान के लिए हिंदी में 3-4 स्पष्ट और व्यावहारिक सुझाव दें।"
+        "system_prompt": "आप एक वरिष्ठ पशु चिकित्सा विशेषज्ञ हैं। पशु डेटा: {}. भविष्यवाणी परिणाम: {}. भरोसा: {}%. यदि परिणाम पॉजिटिव है, तो तुरंत पशु को अलग करने (Isolation) और लैब टेस्टिंग (RBPT/ELISA) की सलाह दें। किसान के लिए हिंदी में 3-4 स्पष्ट और व्यावहारिक सुझाव दें।",
+        "chatbot_button": "💬 AI चिकित्सक से पूछें",
+        "chatbot_title": "🩺 AI चिकित्सक - आपका पशु चिकित्सा सहायक",
+        "chatbot_subtitle": "ब्रुसेलोसिस, दूध की सुरक्षा और पशु स्वास्थ्य के बारे में कुछ भी पूछें",
+        "chat_placeholder": "ब्रुसेलोसिस, लक्षण, रोकथाम, दूध की सुरक्षा के बारे में अपना सवाल पूछें...",
+        "chat_system": "आप 'AI चिकित्सक' हैं, एक विशेषज्ञ पशु चिकित्सा सलाहकार जो ब्रुसेलोसिस और डेयरी पशु स्वास्थ्य में विशेषज्ञता रखते हैं। इन विषयों पर सवालों के जवाब दें: ब्रुसेलोसिस रोग, पशुओं में लक्षण, संचरण, रोकथाम, टीकाकरण, दूध की सुरक्षा, उपचार, निदान परीक्षण (RBPT/ELISA/MRT), फार्म बायोसिक्योरिटी, और सामान्य गाय/भैंस स्वास्थ्य। हिंदी में स्पष्ट, व्यावहारिक सलाह दें। जवाब संक्षिप्त (3-5 वाक्य) रखें जब तक विस्तृत स्पष्टीकरण न मांगा जाए।"
     }
 }
 
@@ -107,6 +117,10 @@ USERS_FILE = MODEL_ARTIFACTS_DIR + 'users.json'
 
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
+if 'chat_history' not in st.session_state:
+    st.session_state['chat_history'] = []
+if 'show_chatbot' not in st.session_state:
+    st.session_state['show_chatbot'] = False
 
 @st.cache_resource
 def load_all_artifacts():
@@ -228,3 +242,71 @@ else:
 
     st.markdown("---")
     st.markdown("Developed with ❤️ for Veterinary Health")
+    
+    # --- FLOATING CHATBOT BUTTON ---
+    if ai_enabled:
+        st.markdown("""
+        <style>
+        .chatbot-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 999;
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: bold;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            cursor: pointer;
+            border: none;
+        }
+        .chatbot-button:hover {
+            background-color: #45a049;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        if st.button(t["chatbot_button"], key="chatbot_toggle"):
+            st.session_state['show_chatbot'] = not st.session_state['show_chatbot']
+        
+        # --- CHATBOT MODAL ---
+        if st.session_state['show_chatbot']:
+            st.markdown("---")
+            st.subheader(t["chatbot_title"])
+            st.caption(t["chatbot_subtitle"])
+            
+            # Display chat history
+            chat_container = st.container()
+            with chat_container:
+                for i, msg in enumerate(st.session_state['chat_history']):
+                    if msg['role'] == 'user':
+                        st.markdown(f"**🧑 You:** {msg['content']}")
+                    else:
+                        st.markdown(f"**🩺 AI Chikitsak:** {msg['content']}")
+            
+            # Chat input
+            user_question = st.text_input(t["chat_placeholder"], key="chat_input")
+            
+            col_send, col_clear = st.columns([4, 1])
+            with col_send:
+                if st.button("Send", key="send_btn") and user_question:
+                    # Add user message
+                    st.session_state['chat_history'].append({"role": "user", "content": user_question})
+                    
+                    # Get AI response
+                    with st.spinner("AI Chikitsak is thinking..."):
+                        try:
+                            full_prompt = f"{t['chat_system']}\n\nUser Question: {user_question}"
+                            response = gemini_model.generate_content(full_prompt)
+                            ai_response = response.text
+                            st.session_state['chat_history'].append({"role": "assistant", "content": ai_response})
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Chat Error: {e}")
+            
+            with col_clear:
+                if st.button("Clear Chat", key="clear_btn"):
+                    st.session_state['chat_history'] = []
+                    st.rerun()

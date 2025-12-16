@@ -23,8 +23,8 @@ ai_enabled = False
 if "GEMINI_API_KEY" in st.secrets:
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # FIX: Explicitly using 'gemini-1.5-flash' which is the standard identifier
-        gemini_model = genai.GenerativeModel(model_name='gemini-1.5-flash')
+        # FIX: Using 'gemini-pro' which is the stable standard identifier
+        gemini_model = genai.GenerativeModel(model_name='gemini-pro')
         ai_enabled = True
     except Exception as e:
         st.sidebar.error(f"AI Setup Error: {e}")

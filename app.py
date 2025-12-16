@@ -19,11 +19,17 @@ from passlib.hash import pbkdf2_sha256
 warnings.filterwarnings('ignore')
 
 # --- GEMINI CONFIGURATION ---
-try:
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    gemini_model = genai.GenerativeModel('gemini-1.5-flash')
-except Exception:
-    st.sidebar.warning("⚠️ Gemini API Key not found in secrets. AI advice will be disabled.")
+# IMPORTANT: Delete secrets.toml from GitHub. Add GEMINI_API_KEY in Streamlit Cloud Settings -> Secrets.
+ai_enabled = False
+if "GEMINI_API_KEY" in st.secrets:
+    try:
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+        ai_enabled = True
+    except Exception as e:
+        st.sidebar.error(f"AI Setup Error: {e}")
+else:
+    st.sidebar.warning("⚠️ Gemini API Key not found in Streamlit Secrets. AI advice disabled.")
 
 # --- TRANSLATIONS & AUTOMATED PROMPT TEMPLATES ---
 translations = {
@@ -32,57 +38,36 @@ translations = {
         "title": "🐂 Brucellosis Prediction Model",
         "user_greet": "Welcome, **{}**!",
         "input_header": "Input Features",
-        "age": "Age (Years)",
-        "breed": "Breed/Species",
-        "sex": "Sex",
-        "calvings": "Calvings",
-        "abortion": "Abortion History (Yes/No)",
+        "age": "Age (Years)", "breed": "Breed/Species", "sex": "Sex",
+        "calvings": "Calvings", "abortion": "Abortion History (Yes/No)",
         "infertility": "Infertility/Repeat Breeder (Yes/No)",
         "vaccination": "Brucella Vaccination Status (Yes/No)",
-        "sample": "Sample Type (Serum/Milk)",
-        "test": "Test Type (RBPT/ELISA/MRT)",
-        "retained": "Retained Placenta/Stillbirth",
-        "disposal": "Proper Disposal of Aborted Fetuses (Yes No)",
+        "sample": "Sample Type (Serum/Milk)", "test": "Test Type (RBPT/ELISA/MRT)",
+        "retained": "Retained Placenta/Stillbirth", "disposal": "Proper Disposal of Aborted Fetuses (Yes No)",
         "predict_btn": "Predict Brucellosis Status",
-        "results_header": "Prediction Results:",
-        "pred_res": "**Predicted Status:**",
-        "conf": "**Confidence Score:**",
-        "prob_header": "Probability Analysis:",
-        "chart_title": "Class Distribution",
-        "logout": "Logout",
-        "login_sub": "Login",
-        "ai_advice_header": "🤖 AI Veterinary Consultation (Auto-Generated)",
+        "results_header": "Prediction Results:", "pred_res": "**Predicted Status:**",
+        "conf": "**Confidence Score:**", "prob_header": "Probability Analysis:",
+        "chart_title": "Class Distribution", "logout": "Logout", "login_sub": "Login",
+        "ai_advice_header": "🤖 AI Veterinary Consultation",
         "ai_loading": "Analyzing data and generating suggestions...",
-        # Hidden Prompt Template
-        "system_prompt": "You are a senior veterinary expert. Analyzing animal data: {}. Prediction Result: {}. Confidence: {}. If result is Positive, strongly advise immediate isolation and confirmatory lab testing (RBPT/ELISA). Provide 3-4 clear, actionable steps for the farmer in English."
+        "system_prompt": "You are a senior veterinary expert. Analyzing animal data: {}. Prediction Result: {}. Confidence: {}%. If result is Positive, strongly advise immediate isolation and confirmatory lab testing (RBPT/ELISA). Provide 3-4 clear, actionable steps for the farmer in English."
     },
     "Hindi": {
         "welcome": "ब्रुसेलोसिस भविष्यवाणी ऐप में आपका स्वागत है",
         "title": "🐂 ब्रुसेलोसिस भविष्यवाणी मॉडल",
         "user_greet": "आपका स्वागत है, **{}**!",
         "input_header": "इनपुट विशेषताएं",
-        "age": "आयु (वर्ष)",
-        "breed": "नस्ल/प्रजाति",
-        "sex": "लिंग",
-        "calvings": "बछड़े की संख्या",
-        "abortion": "गर्भपात का इतिहास",
-        "infertility": "बांझपन",
-        "vaccination": "टीकाकरण की स्थिति",
-        "sample": "नमूना प्रकार",
-        "test": "परीक्षण प्रकार",
-        "retained": "जेर रुकना/मृत प्रसव",
-        "disposal": "भ्रूण का निपटान",
+        "age": "आयु (वर्ष)", "breed": "नस्ल/प्रजाति", "sex": "लिंग",
+        "calvings": "बछड़े की संख्या", "abortion": "गर्भपात का इतिहास",
+        "infertility": "बांझपन", "vaccination": "टीकाकरण की स्थिति",
+        "sample": "नमूना प्रकार", "test": "परीक्षण प्रकार",
+        "retained": "जेर रुकना/मृत प्रसव", "disposal": "भ्रूण का निपटान",
         "predict_btn": "भविष्यवाणी करें",
-        "results_header": "परिणाम:",
-        "pred_res": "**अनुमानित स्थिति:**",
-        "conf": "**भरोसा (Confidence):**",
-        "prob_header": "संभावना विश्लेषण:",
-        "chart_title": "संभावना चार्ट",
-        "logout": "लॉगआउट",
-        "login_sub": "लॉगिन",
-        "ai_advice_header": "🤖 AI पशु चिकित्सक सलाह (स्वचालित)",
+        "results_header": "परिणाम:", "pred_res": "**अनुमानित स्थिति:**",
+        "conf": "**भरोसा (Confidence):**", "prob_header": "संभावना विश्लेषण:",
+        "chart_title": "संभावना चार्ट", "logout": "लॉगआउट", "login_sub": "लॉगिन",
+        "ai_advice_header": "🤖 AI पशु चिकित्सक सलाह",
         "ai_loading": "डेटा का विश्लेषण और सुझाव तैयार किए जा रहे हैं...",
-        # Hidden Prompt Template
         "system_prompt": "आप एक वरिष्ठ पशु चिकित्सा विशेषज्ञ हैं। पशु डेटा: {}. भविष्यवाणी परिणाम: {}. भरोसा: {}%. यदि परिणाम पॉजिटिव है, तो तुरंत पशु को अलग करने (Isolation) और लैब टेस्टिंग (RBPT/ELISA) की सलाह दें। किसान के लिए हिंदी में 3-4 स्पष्ट और व्यावहारिक सुझाव दें।"
     }
 }
@@ -94,20 +79,20 @@ USERS_FILE = MODEL_ARTIFACTS_DIR + 'users.json'
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
-try:
-    with open(MODEL_ARTIFACTS_DIR + 'best_model.pkl', 'rb') as f:
-        best_model = pickle.load(f)
-    with open(MODEL_ARTIFACTS_DIR + 'le_dict.pkl', 'rb') as f:
-        le_dict = pickle.load(f)
-    with open(MODEL_ARTIFACTS_DIR + 'le_target.pkl', 'rb') as f:
-        le_target = pickle.load(f)
-    with open(MODEL_ARTIFACTS_DIR + 'scaler.pkl', 'rb') as f:
-        scaler = pickle.load(f)
-    with open(MODEL_ARTIFACTS_DIR + 'feature_names.pkl', 'rb') as f:
-        feature_names = pickle.load(f)
-except Exception as e:
-    st.error(f"Error loading models: {e}")
-    st.stop()
+@st.cache_resource
+def load_all_artifacts():
+    try:
+        with open(MODEL_ARTIFACTS_DIR + 'best_model.pkl', 'rb') as f: m = pickle.load(f)
+        with open(MODEL_ARTIFACTS_DIR + 'le_dict.pkl', 'rb') as f: ld = pickle.load(f)
+        with open(MODEL_ARTIFACTS_DIR + 'le_target.pkl', 'rb') as f: lt = pickle.load(f)
+        with open(MODEL_ARTIFACTS_DIR + 'scaler.pkl', 'rb') as f: s = pickle.load(f)
+        with open(MODEL_ARTIFACTS_DIR + 'feature_names.pkl', 'rb') as f: fn = pickle.load(f)
+        return m, ld, lt, s, fn
+    except Exception as e:
+        st.error(f"Error loading model artifacts: {e}")
+        return None, None, None, None, None
+
+best_model, le_dict, le_target, scaler, feature_names = load_all_artifacts()
 
 # --- UI LOGIC ---
 st.set_page_config(page_title="Brucella AI Predictor", layout="wide")
@@ -120,13 +105,13 @@ if not st.session_state['logged_in']:
     email = st.sidebar.text_input("Email")
     password = st.sidebar.text_input("Password", type="password")
     if st.sidebar.button("Login"):
-        with open(USERS_FILE, 'r') as f:
-            users = json.load(f)
-        if email in users and pbkdf2_sha256.verify(password, users[email]):
-            st.session_state['logged_in'] = True
-            st.session_state['username'] = email
-            st.rerun()
-        else: st.sidebar.error("Invalid credentials")
+        try:
+            with open(USERS_FILE, 'r') as f: users = json.load(f)
+            if email in users and pbkdf2_sha256.verify(password, users[email]):
+                st.session_state.update(logged_in=True, username=email)
+                st.rerun()
+            else: st.sidebar.error("Invalid credentials")
+        except: st.sidebar.error("User database not found.")
 else:
     st.title(t["title"])
     st.markdown(t["user_greet"].format(st.session_state['username']))
@@ -150,6 +135,7 @@ else:
         retained = st.selectbox(t["retained"], options=sorted(list(le_dict.get('Retained Placenta Stillbirth(Yes No No Data)').classes_)))
         disposal = st.selectbox(t["disposal"], options=sorted(list(le_dict.get('Proper Disposal of Aborted Fetuses (Yes No)').classes_)))
 
+    # Dictionary keys must match le_dict keys EXACTLY
     input_data = {
         'Age': age, 'Breed species': breed, 'Sex': sex, 'Calvings': calvings,
         'Abortion History (Yes No)': abortion, 'Infertility Repeat breeder(Yes No)': infertility,
@@ -159,26 +145,20 @@ else:
     }
 
     if st.button(t["predict_btn"]):
-        # 1. Prediction Logic
-        # Create a dataframe with the exact feature names the model was trained on
+        # 1. PRE-PROCESSING & ENCODING
         input_df = pd.DataFrame([input_data])
         
-        # Ensure columns are in the EXACT order the model expects
-        input_df = input_df.reindex(columns=feature_names)
-
-        # Handle Categorical Encoding manually to ensure no mismatch
+        # Manually encode using le_dict to avoid ValueError
         for col in input_df.columns:
-            if col in le_dict:
-                try:
-                    # Transform the string input into the numeric value the model needs
-                    input_df[col] = le_dict[col].transform(input_df[col])
-                except Exception as e:
-                    st.error(f"Error encoding {col}: {e}")
-                    st.stop()
+            if col in le_dict and input_df[col].dtype == 'object':
+                input_df[col] = le_dict[col].transform(input_df[col])
 
-        # Decide if scaling is needed
-        scaling = isinstance(best_model, (MLPClassifier, SVC, LogisticRegression, KNeighborsClassifier))
-        processed = scaler.transform(input_df) if scaling else input_df.values
+        # Align columns with training data order
+        input_df = input_df.reindex(columns=feature_names, fill_value=0)
+
+        # 2. SCALING & PREDICTION
+        is_linear = isinstance(best_model, (MLPClassifier, SVC, LogisticRegression, KNeighborsClassifier))
+        processed = scaler.transform(input_df) if is_linear else input_df.values
         
         try:
             pred_idx = best_model.predict(processed)[0]
@@ -186,30 +166,34 @@ else:
             res_label = le_target.inverse_transform([pred_idx])[0]
             conf_score = probs.max()
 
-            # Display Results
+            # 3. DISPLAY RESULTS
             st.markdown("---")
             st.subheader(t["results_header"])
-            ui_res = "पॉजिटिव (Positive)" if (selected_lang == "Hindi" and "Positive" in res_label) else \
-                     "नेगेटिव (Negative)" if (selected_lang == "Hindi" and "Negative" in res_label) else res_label
+            ui_res = res_label
+            if selected_lang == "Hindi":
+                ui_res = "पॉजिटिव (Positive)" if "Positive" in res_label else "नेगेटिव (Negative)"
             
             st.success(f"{t['pred_res']} {ui_res}")
             st.info(f"{t['conf']} {conf_score:.2%}")
 
-            # AUTOMATED AI ADVICE
-            if "GEMINI_API_KEY" in st.secrets:
+            # 4. AI CONSULTATION
+            if ai_enabled:
                 st.subheader(t["ai_advice_header"])
                 with st.spinner(t["ai_loading"]):
                     auto_prompt = t["system_prompt"].format(json.dumps(input_data), res_label, round(conf_score*100, 2))
                     response = gemini_model.generate_content(auto_prompt)
                     st.markdown(f"> {response.text}")
-        
+
+            # 5. VISUALIZATION
+            st.write("---")
+            st.subheader(t["prob_header"])
+            prob_df = pd.DataFrame({'Probability': probs}, index=le_target.classes_)
+            fig, ax = plt.subplots(figsize=(8, 3))
+            sns.barplot(x=prob_df.index, y=prob_df['Probability'], palette='viridis', ax=ax)
+            st.pyplot(fig)
+            
         except Exception as e:
-            st.error(f"Model Error: {e}. Please check if input features match the model requirements.")
+            st.error(f"Prediction Error: {e}. Please ensure input data matches model requirements.")
 
-        # Visuals
-        st.write("---")
-        prob_df = pd.DataFrame({'Probability': probs}, index=le_target.classes_)
-        fig, ax = plt.subplots(figsize=(8, 3))
-        sns.barplot(x=prob_df.index, y=prob_df['Probability'], palette='viridis', ax=ax)
-        st.pyplot(fig)
-
+    st.markdown("---")
+    st.markdown("Developed with ❤️ for Veterinary Health")

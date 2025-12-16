@@ -21,37 +21,11 @@ ai_enabled = False
 if "GEMINI_API_KEY" in st.secrets:
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # FIX: Using 'gemini-1.5-flash-latest' often resolves versioning 404s
+        # Explicitly setting the model to gemini-1.5-flash
         gemini_model = genai.GenerativeModel('gemini-1.5-flash')
         ai_enabled = True
     except Exception as e:
         st.sidebar.error(f"AI Config Error: {e}")
-else:
-    st.sidebar.warning("⚠️ API Key missing in Streamlit Secrets.")
-
-# --- TRANSLATIONS ---
-translations = {
-    "English": {
-        "welcome": "Welcome to Brucellosis Prediction App",
-        "title": "🐂 Brucellosis Prediction Model",
-        "user_greet": "Welcome, **{}**!",
-        "predict_btn": "Predict Brucellosis Status",
-        "results_header": "Prediction Results:",
-        "ai_advice_header": "🤖 AI Veterinary Consultation",
-        "ai_loading": "Generating suggestions...",
-        "system_prompt": "As a vet expert, analyze: {}. Result: {}. Confidence: {}%. Provide 3 steps for the farmer in English."
-    },
-    "Hindi": {
-        "welcome": "ब्रुसेलोसिस भविष्यवाणी ऐप में आपका स्वागत है",
-        "title": "🐂 ब्रुसेलोसिस भविष्यवाणी मॉडल",
-        "user_greet": "आपका स्वागत है, **{}**!",
-        "predict_btn": "भविष्यवाणी करें",
-        "results_header": "परिणाम:",
-        "ai_advice_header": "🤖 AI पशु चिकित्सक सलाह",
-        "ai_loading": "सुझाव तैयार किए जा रहे हैं...",
-        "system_prompt": "पशु चिकित्सक के रूप में, विश्लेषण करें: {}. परिणाम: {}. भरोसा: {}%. किसान के लिए हिंदी में 3 सुझाव दें।"
-    }
-}
 
 # --- ARTIFACT LOADING ---
 MODEL_ARTIFACTS_DIR = 'model_artifacts/'
@@ -68,7 +42,24 @@ def load_artifacts():
 
 best_model, le_dict, le_target, scaler, feature_names = load_artifacts()
 
-# --- APP LOGIC ---
+# --- TRANSLATIONS ---
+translations = {
+    "English": {
+        "welcome": "Welcome to Brucellosis Prediction App",
+        "predict_btn": "Predict Status",
+        "res_header": "Prediction Results:",
+        "ai_header": "🤖 AI Veterinary Advice",
+        "system_prompt": "As a vet expert, analyze animal data: {}. Result: {}. Provide 3 short steps for the farmer in English."
+    },
+    "Hindi": {
+        "welcome": "ब्रुसेलोसिस भविष्यवाणी ऐप में स्वागत है",
+        "predict_btn": "भविष्यवाणी करें",
+        "res_header": "परिणाम:",
+        "ai_header": "🤖 AI पशु चिकित्सक सलाह",
+        "system_prompt": "पशु चिकित्सक के रूप में, पशु डेटा का विश्लेषण करें: {}. परिणाम: {}. किसान के लिए हिंदी में 3 छोटे सुझाव दें।"
+    }
+}
+
 st.set_page_config(page_title="Brucella AI", layout="wide")
 selected_lang = st.sidebar.selectbox("Language / भाषा", ["English", "Hindi"])
 t = translations[selected_lang]
@@ -85,22 +76,21 @@ if not st.session_state['logged_in']:
             st.session_state.update(logged_in=True, username=email)
             st.rerun()
 else:
-    st.title(t["title"])
-    # Features UI
+    # --- FEATURES UI ---
     col1, col2 = st.columns(2)
     with col1:
         age = st.slider("Age", 0, 20, 5)
-        breed = st.selectbox("Breed", options=list(le_dict.get('Breed species').classes_))
-        sex = st.selectbox("Sex", options=list(le_dict.get('Sex').classes_))
+        breed = st.selectbox("Breed", options=list(le_dict['Breed species'].classes_))
+        sex = st.selectbox("Sex", options=list(le_dict['Sex'].classes_))
         calvings = st.slider("Calvings", 0, 15, 1)
-        abortion = st.selectbox("Abortion History", options=list(le_dict.get('Abortion History (Yes No)').classes_))
+        abortion = st.selectbox("Abortion History", options=list(le_dict['Abortion History (Yes No)'].classes_))
     with col2:
-        infertility = st.selectbox("Infertility", options=list(le_dict.get('Infertility Repeat breeder(Yes No)').classes_))
-        vaccine = st.selectbox("Vaccination", options=list(le_dict.get('Brucella vaccination status (Yes No)').classes_))
-        sample = st.selectbox("Sample Type", options=list(le_dict.get('Sample Type(Serum Milk)').classes_))
-        test_type = st.selectbox("Test Type", options=list(le_dict.get('Test Type (RBPT ELISA MRT)').classes_))
-        retained = st.selectbox("Retained Placenta", options=list(le_dict.get('Retained Placenta Stillbirth(Yes No No Data)').classes_))
-        disposal = st.selectbox("Disposal", options=list(le_dict.get('Proper Disposal of Aborted Fetuses (Yes No)').classes_))
+        infertility = st.selectbox("Infertility", options=list(le_dict['Infertility Repeat breeder(Yes No)'].classes_))
+        vaccine = st.selectbox("Vaccination", options=list(le_dict['Brucella vaccination status (Yes No)'].classes_))
+        sample = st.selectbox("Sample Type", options=list(le_dict['Sample Type(Serum Milk)'].classes_))
+        test_type = st.selectbox("Test Type", options=list(le_dict['Test Type (RBPT ELISA MRT)'].classes_))
+        retained = st.selectbox("Retained Placenta", options=list(le_dict['Retained Placenta Stillbirth(Yes No No Data)'].classes_))
+        disposal = st.selectbox("Disposal", options=list(le_dict['Proper Disposal of Aborted Fetuses (Yes No)'].classes_))
 
     input_data = {
         'Age': age, 'Breed species': breed, 'Sex': sex, 'Calvings': calvings,
@@ -111,19 +101,21 @@ else:
     }
 
     if st.button(t["predict_btn"]):
-        # 1. FIXED PRE-PROCESSING
+        # 1. ENCODING FIX
         input_df = pd.DataFrame([input_data])
         
-        # Robust Encoding
+        # Ensure input data matches training categories exactly
         for col in input_df.columns:
             if col in le_dict:
-                input_df[col] = le_dict[col].transform(input_df[col].astype(str))
-        
+                # Stripping potential whitespace to avoid 'previously unseen labels' error
+                val = str(input_df[col].iloc[0]).strip()
+                input_df[col] = le_dict[col].transform([val])
+
         input_df = input_df.reindex(columns=feature_names, fill_value=0)
 
-        # Scaling
-        is_scaled_model = isinstance(best_model, (MLPClassifier, SVC, LogisticRegression, KNeighborsClassifier))
-        processed = scaler.transform(input_df) if is_scaled_model else input_df.values
+        # 2. SCALING & PREDICTION
+        is_scaled = isinstance(best_model, (MLPClassifier, SVC, LogisticRegression, KNeighborsClassifier))
+        processed = scaler.transform(input_df) if is_scaled else input_df.values
 
         try:
             pred_idx = best_model.predict(processed)[0]
@@ -131,13 +123,15 @@ else:
             res_label = le_target.inverse_transform([pred_idx])[0]
             conf = probs.max()
 
-            st.subheader(t["results_header"])
-            st.success(f"Status: {res_label} ({conf:.2%})")
+            st.subheader(t["res_header"])
+            color = "green" if "Negative" in res_label else "red"
+            st.markdown(f"### Status: :{color}[{res_label}] ({conf:.2%})")
 
+            # 3. AI ADVICE FIX
             if ai_enabled:
-                with st.spinner(t["ai_loading"]):
-                    prompt = t["system_prompt"].format(json.dumps(input_data), res_label, round(conf*100, 2))
+                with st.spinner("AI analyzing..."):
+                    prompt = t["system_prompt"].format(json.dumps(input_data), res_label)
                     response = gemini_model.generate_content(prompt)
                     st.info(response.text)
         except Exception as e:
-            st.error(f"Error: {e}")
+            st.error(f"Prediction Error: {e}")

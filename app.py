@@ -19,12 +19,12 @@ from passlib.hash import pbkdf2_sha256
 warnings.filterwarnings('ignore')
 
 # --- GEMINI CONFIGURATION ---
-# IMPORTANT: Delete secrets.toml from GitHub. Add GEMINI_API_KEY in Streamlit Cloud Settings -> Secrets.
 ai_enabled = False
 if "GEMINI_API_KEY" in st.secrets:
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+        # FIX: Explicitly using 'gemini-1.5-flash' which is the standard identifier
+        gemini_model = genai.GenerativeModel(model_name='gemini-1.5-flash')
         ai_enabled = True
     except Exception as e:
         st.sidebar.error(f"AI Setup Error: {e}")
@@ -135,7 +135,6 @@ else:
         retained = st.selectbox(t["retained"], options=sorted(list(le_dict.get('Retained Placenta Stillbirth(Yes No No Data)').classes_)))
         disposal = st.selectbox(t["disposal"], options=sorted(list(le_dict.get('Proper Disposal of Aborted Fetuses (Yes No)').classes_)))
 
-    # Dictionary keys must match le_dict keys EXACTLY
     input_data = {
         'Age': age, 'Breed species': breed, 'Sex': sex, 'Calvings': calvings,
         'Abortion History (Yes No)': abortion, 'Infertility Repeat breeder(Yes No)': infertility,
@@ -148,12 +147,12 @@ else:
         # 1. PRE-PROCESSING & ENCODING
         input_df = pd.DataFrame([input_data])
         
-        # Manually encode using le_dict to avoid ValueError
+        # Ensure categorical encoding using exactly the same logic as training
         for col in input_df.columns:
             if col in le_dict and input_df[col].dtype == 'object':
                 input_df[col] = le_dict[col].transform(input_df[col])
 
-        # Align columns with training data order
+        # Align with training data order
         input_df = input_df.reindex(columns=feature_names, fill_value=0)
 
         # 2. SCALING & PREDICTION
@@ -169,20 +168,23 @@ else:
             # 3. DISPLAY RESULTS
             st.markdown("---")
             st.subheader(t["results_header"])
-            ui_res = res_label
-            if selected_lang == "Hindi":
-                ui_res = "पॉजिटिव (Positive)" if "Positive" in res_label else "नेगेटिव (Negative)"
+            ui_res = "पॉजिटिव (Positive)" if (selected_lang == "Hindi" and "Positive" in res_label) else \
+                     "नेगेटिव (Negative)" if (selected_lang == "Hindi" and "Negative" in res_label) else res_label
             
             st.success(f"{t['pred_res']} {ui_res}")
             st.info(f"{t['conf']} {conf_score:.2%}")
 
-            # 4. AI CONSULTATION
+            # 4. AI CONSULTATION (FIXED CALL)
             if ai_enabled:
                 st.subheader(t["ai_advice_header"])
                 with st.spinner(t["ai_loading"]):
-                    auto_prompt = t["system_prompt"].format(json.dumps(input_data), res_label, round(conf_score*100, 2))
-                    response = gemini_model.generate_content(auto_prompt)
-                    st.markdown(f"> {response.text}")
+                    try:
+                        auto_prompt = t["system_prompt"].format(json.dumps(input_data), res_label, round(conf_score*100, 2))
+                        # FIX: Using the generated object to call content generation
+                        response = gemini_model.generate_content(auto_prompt)
+                        st.markdown(f"> {response.text}")
+                    except Exception as ai_e:
+                        st.error(f"AI Generation Error: {ai_e}")
 
             # 5. VISUALIZATION
             st.write("---")
@@ -193,7 +195,7 @@ else:
             st.pyplot(fig)
             
         except Exception as e:
-            st.error(f"Prediction Error: {e}. Please ensure input data matches model requirements.")
+            st.error(f"Prediction Error: {e}")
 
     st.markdown("---")
     st.markdown("Developed with ❤️ for Veterinary Health")

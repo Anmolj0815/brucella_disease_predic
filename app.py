@@ -159,35 +159,52 @@ else:
     }
 
     if st.button(t["predict_btn"]):
-        # Predict
-        input_df = pd.DataFrame([input_data]).reindex(columns=feature_names, fill_value=0)
+        # 1. Prediction Logic
+        # Create a dataframe with the exact feature names the model was trained on
+        input_df = pd.DataFrame([input_data])
+        
+        # Ensure columns are in the EXACT order the model expects
+        input_df = input_df.reindex(columns=feature_names)
+
+        # Handle Categorical Encoding manually to ensure no mismatch
+        for col in input_df.columns:
+            if col in le_dict:
+                try:
+                    # Transform the string input into the numeric value the model needs
+                    input_df[col] = le_dict[col].transform(input_df[col])
+                except Exception as e:
+                    st.error(f"Error encoding {col}: {e}")
+                    st.stop()
+
+        # Decide if scaling is needed
         scaling = isinstance(best_model, (MLPClassifier, SVC, LogisticRegression, KNeighborsClassifier))
         processed = scaler.transform(input_df) if scaling else input_df.values
-        pred_idx = best_model.predict(processed)[0]
-        probs = best_model.predict_proba(processed)[0]
-        res_label = le_target.inverse_transform([pred_idx])[0]
-        conf_score = probs.max()
-
-        # Display Results
-        st.markdown("---")
-        st.subheader(t["results_header"])
-        ui_res = res_label
-        if selected_lang == "Hindi":
-            ui_res = "पॉजिटिव (Positive)" if "Positive" in res_label else "नेगेटिव (Negative)"
         
-        st.success(f"{t['pred_res']} {ui_res}")
-        st.info(f"{t['conf']} {conf_score:.2%}")
+        try:
+            pred_idx = best_model.predict(processed)[0]
+            probs = best_model.predict_proba(processed)[0]
+            res_label = le_target.inverse_transform([pred_idx])[0]
+            conf_score = probs.max()
 
-        # AUTOMATED AI ADVICE
-        st.subheader(t["ai_advice_header"])
-        with st.spinner(t["ai_loading"]):
-            try:
-                # Automating the prompt construction
-                auto_prompt = t["system_prompt"].format(json.dumps(input_data), res_label, round(conf_score*100, 2))
-                response = gemini_model.generate_content(auto_prompt)
-                st.markdown(f"> {response.text}")
-            except Exception:
-                st.error("AI service error.")
+            # Display Results
+            st.markdown("---")
+            st.subheader(t["results_header"])
+            ui_res = "पॉजिटिव (Positive)" if (selected_lang == "Hindi" and "Positive" in res_label) else \
+                     "नेगेटिव (Negative)" if (selected_lang == "Hindi" and "Negative" in res_label) else res_label
+            
+            st.success(f"{t['pred_res']} {ui_res}")
+            st.info(f"{t['conf']} {conf_score:.2%}")
+
+            # AUTOMATED AI ADVICE
+            if "GEMINI_API_KEY" in st.secrets:
+                st.subheader(t["ai_advice_header"])
+                with st.spinner(t["ai_loading"]):
+                    auto_prompt = t["system_prompt"].format(json.dumps(input_data), res_label, round(conf_score*100, 2))
+                    response = gemini_model.generate_content(auto_prompt)
+                    st.markdown(f"> {response.text}")
+        
+        except Exception as e:
+            st.error(f"Model Error: {e}. Please check if input features match the model requirements.")
 
         # Visuals
         st.write("---")
@@ -195,3 +212,4 @@ else:
         fig, ax = plt.subplots(figsize=(8, 3))
         sns.barplot(x=prob_df.index, y=prob_df['Probability'], palette='viridis', ax=ax)
         st.pyplot(fig)
+

@@ -9,4 +9,6 @@ xgboost
 passlib[bcrypt]
 passlib
 bcrypt
+google-generativeai
+
 

@@ -26,7 +26,7 @@ if "GEMINI_API_KEY" in st.secrets:
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         
-        # First, list all available models
+        # List all available models and use the first one
         try:
             available_models = []
             for m in genai.list_models():
@@ -34,26 +34,20 @@ if "GEMINI_API_KEY" in st.secrets:
                     available_models.append(m.name)
             
             if available_models:
-                st.sidebar.info(f"📋 Available models: {', '.join(available_models[:3])}")
-                
-                # Try to use the first available model
+                # Use the first available model
                 model_to_use = available_models[0]
                 gemini_model = genai.GenerativeModel(model_name=model_to_use)
                 ai_enabled = True
-                st.sidebar.success(f"✅ AI enabled with: {model_to_use}")
             else:
                 st.sidebar.warning("⚠️ No models found with generateContent support.")
                 
         except Exception as list_error:
-            st.sidebar.error(f"Could not list models: {list_error}")
-            
             # Fallback: try common model names without testing
             model_names = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
             for model_name in model_names:
                 try:
                     gemini_model = genai.GenerativeModel(model_name=model_name)
                     ai_enabled = True
-                    st.sidebar.success(f"✅ AI enabled (fallback): {model_name}")
                     break
                 except:
                     continue

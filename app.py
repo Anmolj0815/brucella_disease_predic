@@ -14,7 +14,9 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
-from passlib.hash import pbkdf2_sha256 
+from passlib.hash import pbkdf2_sha256
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 warnings.filterwarnings('ignore')
 
@@ -114,7 +116,7 @@ translations = {
 # --- MODEL LOADING ---
 MODEL_ARTIFACTS_DIR = 'model_artifacts/'
 USERS_FILE = MODEL_ARTIFACTS_DIR + 'users.json'
-USERS_EXCEL = MODEL_ARTIFACTS_DIR + 'registered_users.xlsx'
+GOOGLE_SHEET_ID = '159z65oDmaBPymwndIHkNVbK1Q6_GMmFc7xGcJ2fsozY'
 
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
@@ -123,36 +125,52 @@ if 'chat_history' not in st.session_state:
 if 'show_chatbot' not in st.session_state:
     st.session_state['show_chatbot'] = False
 
-def save_user_to_excel(email, name, phone, location):
-    """Save new user registration to Excel file"""
+def connect_to_google_sheet():
+    """Connect to Google Sheets"""
     try:
-        # Check if Excel file exists
-        if os.path.exists(USERS_EXCEL):
-            df = pd.read_excel(USERS_EXCEL)
-        else:
-            # Create new DataFrame with headers
-            df = pd.DataFrame(columns=['Email', 'Name', 'Phone', 'Location', 'Registration Date'])
+        # Define the scope
+        scope = ['https://spreadsheets.google.com/feeds',
+                 'https://www.googleapis.com/auth/drive']
         
-        # Add new user
-        new_user = pd.DataFrame({
-            'Email': [email],
-            'Name': [name],
-            'Phone': [phone],
-            'Location': [location],
-            'Registration Date': [pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')]
-        })
+        # Get credentials from Streamlit secrets
+        creds_dict = st.secrets["gcp_service_account"]
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+        client = gspread.authorize(creds)
         
-        df = pd.concat([df, new_user], ignore_index=True)
+        # Open the Google Sheet
+        sheet = client.open_by_key(GOOGLE_SHEET_ID).sheet1
+        return sheet
+    except Exception as e:
+        st.error(f"Google Sheets connection error: {e}")
+        return None
+
+def save_user_to_google_sheet(email, name, phone, location):
+    """Save new user registration to Google Sheet"""
+    try:
+        sheet = connect_to_google_sheet()
+        if sheet is None:
+            return False
         
-        # Save to Excel
-        df.to_excel(USERS_EXCEL, index=False)
+        # Check if headers exist, if not add them
+        try:
+            headers = sheet.row_values(1)
+            if not headers:
+                sheet.append_row(['Email', 'Name', 'Phone', 'Location', 'Registration Date'])
+        except:
+            sheet.append_row(['Email', 'Name', 'Phone', 'Location', 'Registration Date'])
+        
+        # Add new user data
+        registration_date = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
+        sheet.append_row([email, name, phone, location, registration_date])
+        
+        st.success(f"✅ User data saved to Google Sheet successfully!")
         return True
     except Exception as e:
-        st.error(f"Error saving to Excel: {e}")
+        st.error(f"❌ Error saving to Google Sheet: {e}")
         return False
 
 def register_user(email, password, name, phone, location):
-    """Register new user in JSON and Excel"""
+    """Register new user in JSON and Google Sheet"""
     try:
         # Load existing users from JSON
         if os.path.exists(USERS_FILE):
@@ -170,11 +188,11 @@ def register_user(email, password, name, phone, location):
         with open(USERS_FILE, 'w') as f:
             json.dump(users, f)
         
-        # Save to Excel
-        if save_user_to_excel(email, name, phone, location):
+        # Save to Google Sheet
+        if save_user_to_google_sheet(email, name, phone, location):
             return True, "Registration successful!"
         else:
-            return False, "User created but Excel save failed"
+            return False, "User created but Google Sheet save failed"
             
     except Exception as e:
         return False, f"Registration error: {e}"

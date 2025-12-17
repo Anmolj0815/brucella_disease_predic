@@ -114,6 +114,7 @@ translations = {
 # --- MODEL LOADING ---
 MODEL_ARTIFACTS_DIR = 'model_artifacts/'
 USERS_FILE = MODEL_ARTIFACTS_DIR + 'users.json'
+USERS_EXCEL = MODEL_ARTIFACTS_DIR + 'registered_users.xlsx'
 
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
@@ -121,6 +122,62 @@ if 'chat_history' not in st.session_state:
     st.session_state['chat_history'] = []
 if 'show_chatbot' not in st.session_state:
     st.session_state['show_chatbot'] = False
+
+def save_user_to_excel(email, name, phone, location):
+    """Save new user registration to Excel file"""
+    try:
+        # Check if Excel file exists
+        if os.path.exists(USERS_EXCEL):
+            df = pd.read_excel(USERS_EXCEL)
+        else:
+            # Create new DataFrame with headers
+            df = pd.DataFrame(columns=['Email', 'Name', 'Phone', 'Location', 'Registration Date'])
+        
+        # Add new user
+        new_user = pd.DataFrame({
+            'Email': [email],
+            'Name': [name],
+            'Phone': [phone],
+            'Location': [location],
+            'Registration Date': [pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')]
+        })
+        
+        df = pd.concat([df, new_user], ignore_index=True)
+        
+        # Save to Excel
+        df.to_excel(USERS_EXCEL, index=False)
+        return True
+    except Exception as e:
+        st.error(f"Error saving to Excel: {e}")
+        return False
+
+def register_user(email, password, name, phone, location):
+    """Register new user in JSON and Excel"""
+    try:
+        # Load existing users from JSON
+        if os.path.exists(USERS_FILE):
+            with open(USERS_FILE, 'r') as f:
+                users = json.load(f)
+        else:
+            users = {}
+        
+        # Check if user already exists
+        if email in users:
+            return False, "User already exists!"
+        
+        # Hash password and save to JSON
+        users[email] = pbkdf2_sha256.hash(password)
+        with open(USERS_FILE, 'w') as f:
+            json.dump(users, f)
+        
+        # Save to Excel
+        if save_user_to_excel(email, name, phone, location):
+            return True, "Registration successful!"
+        else:
+            return False, "User created but Excel save failed"
+            
+    except Exception as e:
+        return False, f"Registration error: {e}"
 
 @st.cache_resource
 def load_all_artifacts():
@@ -144,17 +201,45 @@ t = translations[selected_lang]
 
 if not st.session_state['logged_in']:
     st.title(t["welcome"])
-    st.sidebar.subheader(t["login_sub"])
-    email = st.sidebar.text_input("Email")
-    password = st.sidebar.text_input("Password", type="password")
-    if st.sidebar.button("Login"):
-        try:
-            with open(USERS_FILE, 'r') as f: users = json.load(f)
-            if email in users and pbkdf2_sha256.verify(password, users[email]):
-                st.session_state.update(logged_in=True, username=email)
-                st.rerun()
-            else: st.sidebar.error("Invalid credentials")
-        except: st.sidebar.error("User database not found.")
+    
+    # Tabs for Login and Register
+    tab1, tab2 = st.tabs(["Login", "Register"])
+    
+    with tab1:
+        st.subheader(t["login_sub"])
+        email = st.text_input("Email", key="login_email")
+        password = st.text_input("Password", type="password", key="login_password")
+        if st.button("Login"):
+            try:
+                with open(USERS_FILE, 'r') as f: users = json.load(f)
+                if email in users and pbkdf2_sha256.verify(password, users[email]):
+                    st.session_state.update(logged_in=True, username=email)
+                    st.rerun()
+                else: st.error("Invalid credentials")
+            except: st.error("User database not found.")
+    
+    with tab2:
+        st.subheader("Register New Account")
+        reg_name = st.text_input("Full Name", key="reg_name")
+        reg_email = st.text_input("Email", key="reg_email")
+        reg_phone = st.text_input("Phone Number", key="reg_phone")
+        reg_location = st.text_input("Location (City/Village)", key="reg_location")
+        reg_password = st.text_input("Password", type="password", key="reg_password")
+        reg_confirm = st.text_input("Confirm Password", type="password", key="reg_confirm")
+        
+        if st.button("Register"):
+            if not all([reg_name, reg_email, reg_phone, reg_location, reg_password]):
+                st.error("Please fill all fields")
+            elif reg_password != reg_confirm:
+                st.error("Passwords do not match")
+            elif len(reg_password) < 6:
+                st.error("Password must be at least 6 characters")
+            else:
+                success, message = register_user(reg_email, reg_password, reg_name, reg_phone, reg_location)
+                if success:
+                    st.success(message + " Please login now.")
+                else:
+                    st.error(message)
 else:
     st.title(t["title"])
     st.markdown(t["user_greet"].format(st.session_state['username']))

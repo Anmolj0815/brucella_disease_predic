@@ -16,7 +16,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 from passlib.hash import pbkdf2_sha256
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
 
 warnings.filterwarnings('ignore')
 
@@ -134,7 +134,7 @@ def connect_to_google_sheet():
         
         # Get credentials from Streamlit secrets
         creds_dict = st.secrets["gcp_service_account"]
-        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         client = gspread.authorize(creds)
         
         # Open the Google Sheet

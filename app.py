@@ -17,6 +17,11 @@ from sklearn.neighbors import KNeighborsClassifier
 from passlib.hash import pbkdf2_sha256
 import gspread
 from google.oauth2.service_account import Credentials
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import random
+import time
 
 warnings.filterwarnings('ignore')
 
@@ -124,6 +129,71 @@ if 'chat_history' not in st.session_state:
     st.session_state['chat_history'] = []
 if 'show_chatbot' not in st.session_state:
     st.session_state['show_chatbot'] = False
+if 'otp_sent' not in st.session_state:
+    st.session_state['otp_sent'] = False
+if 'otp_code' not in st.session_state:
+    st.session_state['otp_code'] = None
+if 'otp_timestamp' not in st.session_state:
+    st.session_state['otp_timestamp'] = None
+if 'pending_user_data' not in st.session_state:
+    st.session_state['pending_user_data'] = None
+
+def generate_otp():
+    """Generate 6-digit OTP"""
+    return str(random.randint(100000, 999999))
+
+def send_otp_email(recipient_email, otp_code):
+    """Send OTP via email"""
+    try:
+        smtp_user = st.secrets["email"]["smtp_user"]
+        smtp_password = st.secrets["email"]["smtp_password"]
+        
+        # Create email
+        msg = MIMEMultipart()
+        msg['From'] = smtp_user
+        msg['To'] = recipient_email
+        msg['Subject'] = "Brucellosis App - Email Verification OTP"
+        
+        body = f"""
+        Hello,
+        
+        Your OTP for Brucellosis Prediction App registration is: {otp_code}
+        
+        This OTP is valid for 10 minutes.
+        
+        If you did not request this, please ignore this email.
+        
+        Best regards,
+        Brucellosis App Team
+        """
+        
+        msg.attach(MIMEText(body, 'plain'))
+        
+        # Send email via Gmail SMTP
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(smtp_user, smtp_password)
+        server.send_message(msg)
+        server.quit()
+        
+        return True
+    except Exception as e:
+        st.error(f"Failed to send OTP: {e}")
+        return False
+
+def verify_otp(entered_otp):
+    """Verify if entered OTP is correct and not expired"""
+    if st.session_state['otp_code'] is None:
+        return False, "No OTP sent"
+    
+    # Check expiry (10 minutes)
+    if time.time() - st.session_state['otp_timestamp'] > 600:
+        return False, "OTP expired. Please request a new one."
+    
+    if entered_otp == st.session_state['otp_code']:
+        return True, "OTP verified successfully!"
+    else:
+        return False, "Invalid OTP. Please try again."
 
 def connect_to_google_sheet():
     """Connect to Google Sheets"""
@@ -238,26 +308,119 @@ if not st.session_state['logged_in']:
     
     with tab2:
         st.subheader("Register New Account")
-        reg_name = st.text_input("Full Name", key="reg_name")
-        reg_email = st.text_input("Email", key="reg_email")
-        reg_phone = st.text_input("Phone Number", key="reg_phone")
-        reg_location = st.text_input("Location (City/Village)", key="reg_location")
-        reg_password = st.text_input("Password", type="password", key="reg_password")
-        reg_confirm = st.text_input("Confirm Password", type="password", key="reg_confirm")
         
-        if st.button("Register"):
-            if not all([reg_name, reg_email, reg_phone, reg_location, reg_password]):
-                st.error("Please fill all fields")
-            elif reg_password != reg_confirm:
-                st.error("Passwords do not match")
-            elif len(reg_password) < 6:
-                st.error("Password must be at least 6 characters")
-            else:
-                success, message = register_user(reg_email, reg_password, reg_name, reg_phone, reg_location)
-                if success:
-                    st.success(message + " Please login now.")
+        if not st.session_state['otp_sent']:
+            # Step 1: Collect user details
+            reg_name = st.text_input("Full Name", key="reg_name")
+            reg_email = st.text_input("Email", key="reg_email")
+            reg_phone = st.text_input("Phone Number", key="reg_phone")
+            reg_location = st.text_input("Location (City/Village)", key="reg_location")
+            reg_password = st.text_input("Password", type="password", key="reg_password")
+            reg_confirm = st.text_input("Confirm Password", type="password", key="reg_confirm")
+            
+            if st.button("Send OTP"):
+                if not all([reg_name, reg_email, reg_phone, reg_location, reg_password]):
+                    st.error("Please fill all fields")
+                elif reg_password != reg_confirm:
+                    st.error("Passwords do not match")
+                elif len(reg_password) < 6:
+                    st.error("Password must be at least 6 characters")
                 else:
-                    st.error(message)
+                    # Check if user already exists
+                    try:
+                        if os.path.exists(USERS_FILE):
+                            with open(USERS_FILE, 'r') as f:
+                                users = json.load(f)
+                            if reg_email in users:
+                                st.error("User already exists!")
+                            else:
+                                # Generate and send OTP
+                                otp = generate_otp()
+                                if send_otp_email(reg_email, otp):
+                                    st.session_state['otp_code'] = otp
+                                    st.session_state['otp_timestamp'] = time.time()
+                                    st.session_state['otp_sent'] = True
+                                    st.session_state['pending_user_data'] = {
+                                        'email': reg_email,
+                                        'password': reg_password,
+                                        'name': reg_name,
+                                        'phone': reg_phone,
+                                        'location': reg_location
+                                    }
+                                    st.success(f"✅ OTP sent to {reg_email}. Please check your email.")
+                                    st.rerun()
+                        else:
+                            # First user - send OTP
+                            otp = generate_otp()
+                            if send_otp_email(reg_email, otp):
+                                st.session_state['otp_code'] = otp
+                                st.session_state['otp_timestamp'] = time.time()
+                                st.session_state['otp_sent'] = True
+                                st.session_state['pending_user_data'] = {
+                                    'email': reg_email,
+                                    'password': reg_password,
+                                    'name': reg_name,
+                                    'phone': reg_phone,
+                                    'location': reg_location
+                                }
+                                st.success(f"✅ OTP sent to {reg_email}. Please check your email.")
+                                st.rerun()
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+        
+        else:
+            # Step 2: Verify OTP
+            st.info(f"📧 OTP sent to {st.session_state['pending_user_data']['email']}")
+            st.caption("Please enter the 6-digit OTP sent to your email (valid for 10 minutes)")
+            
+            entered_otp = st.text_input("Enter OTP", max_chars=6, key="otp_input")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Verify OTP"):
+                    if entered_otp:
+                        is_valid, message = verify_otp(entered_otp)
+                        if is_valid:
+                            # Register user
+                            user_data = st.session_state['pending_user_data']
+                            success, reg_message = register_user(
+                                user_data['email'],
+                                user_data['password'],
+                                user_data['name'],
+                                user_data['phone'],
+                                user_data['location']
+                            )
+                            if success:
+                                st.success("🎉 " + reg_message + " Please login now.")
+                                # Reset OTP session
+                                st.session_state['otp_sent'] = False
+                                st.session_state['otp_code'] = None
+                                st.session_state['otp_timestamp'] = None
+                                st.session_state['pending_user_data'] = None
+                                time.sleep(2)
+                                st.rerun()
+                            else:
+                                st.error(reg_message)
+                        else:
+                            st.error(message)
+                    else:
+                        st.error("Please enter OTP")
+            
+            with col2:
+                if st.button("Resend OTP"):
+                    otp = generate_otp()
+                    if send_otp_email(st.session_state['pending_user_data']['email'], otp):
+                        st.session_state['otp_code'] = otp
+                        st.session_state['otp_timestamp'] = time.time()
+                        st.success("✅ New OTP sent!")
+                        st.rerun()
+            
+            if st.button("← Back to Registration"):
+                st.session_state['otp_sent'] = False
+                st.session_state['otp_code'] = None
+                st.session_state['otp_timestamp'] = None
+                st.session_state['pending_user_data'] = None
+                st.rerun()
 else:
     st.title(t["title"])
     st.markdown(t["user_greet"].format(st.session_state['username']))

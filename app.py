@@ -481,10 +481,10 @@ else:
     
     col1, col2 = st.columns(2)
     with col1:
-        age = st.slider(t["age"], 0, 20, 5)
+        age = st.number_input(t["age"], min_value=0, max_value=20, value=5, step=1)
         breed = st.selectbox(t["breed"], options=sorted(list(le_dict.get('Breed species').classes_)))
         sex = st.selectbox(t["sex"], options=sorted(list(le_dict.get('Sex').classes_)))
-        calvings = st.slider(t["calvings"], 0, 15, 1)
+        calvings = st.number_input(t["calvings"], min_value=0, max_value=15, value=1, step=1)
         abortion = st.selectbox(t["abortion"], options=sorted(list(le_dict.get('Abortion History (Yes No)').classes_)))
 
     with col2:

@@ -1,766 +1,728 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
-import pickle
-import warnings
-import json
-import os
-import matplotlib.pyplot as plt
-import seaborn as sns
-import google.generativeai as genai
-from collections import Counter
-from sklearn.preprocessing import LabelEncoder
-from sklearn.neural_network import MLPClassifier
-from sklearn.svm import SVC
-from sklearn.linear_model import LogisticRegression
-from sklearn.neighbors import KNeighborsClassifier
-from passlib.hash import pbkdf2_sha256
-import gspread
-from google.oauth2.service_account import Credentials
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-import random
-import time
+import React, { useState } from 'react';
+import { BarChart3, Activity, TrendingUp, Users, MessageSquare, FileText, Calendar, Settings, LogOut, Menu, X, ChevronRight, Download, ClipboardList, BookOpen, Sparkles } from 'lucide-react';
 
-warnings.filterwarnings('ignore')
+const BrucellosisApp = () => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showChatbot, setShowChatbot] = useState(false);
+  const [activeTab, setActiveTab] = useState('login');
+  const [language, setLanguage] = useState('English');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [predictionResult, setPredictionResult] = useState(null);
+  const [chatHistory, setChatHistory] = useState([]);
+  const [chatInput, setChatInput] = useState('');
 
-# --- GEMINI CONFIGURATION ---
-ai_enabled = False
-gemini_model = None
+  // Mock data for dashboard stats
+  const stats = {
+    totalPredictions: 1247,
+    positiveCases: 87,
+    accuracyRate: 94.3,
+    aiConsultations: 342
+  };
 
-if "GEMINI_API_KEY" in st.secrets:
-    try:
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        
-        try:
-            available_models = []
-            for m in genai.list_models():
-                if 'generateContent' in m.supported_generation_methods:
-                    available_models.append(m.name)
-            
-            if available_models:
-                model_to_use = available_models[0]
-                gemini_model = genai.GenerativeModel(model_name=model_to_use)
-                ai_enabled = True
-            else:
-                st.sidebar.warning("No AI models found with generateContent support.")
-                
-        except Exception as list_error:
-            model_names = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
-            for model_name in model_names:
-                try:
-                    gemini_model = genai.GenerativeModel(model_name=model_name)
-                    ai_enabled = True
-                    break
-                except:
-                    continue
-            
-            if not ai_enabled:
-                st.sidebar.warning("Could not initialize AI service. Advanced features disabled.")
-            
-    except Exception as e:
-        st.sidebar.error(f"AI Setup Error: {e}")
-else:
-    st.sidebar.warning("API Key not found. AI features disabled.")
+  // Form state
+  const [formData, setFormData] = useState({
+    age: 5,
+    breed: 'Select breed',
+    sex: 'Select sex',
+    calvings: 1,
+    abortion: 'No',
+    infertility: 'No',
+    vaccination: 'Not Vaccinated',
+    sample: 'Blood',
+    test: 'RBPT',
+    retained: 'No',
+    disposal: 'Yes'
+  });
 
-# --- TRANSLATIONS ---
-translations = {
-    "English": {
-        "welcome": "Welcome to Brucellosis Prediction System",
-        "title": "Brucellosis Prediction Model",
-        "user_greet": "Welcome back, {}",
-        "input_header": "Animal Information",
-        "age": "Age (Years)", "breed": "Breed/Species", "sex": "Sex",
-        "calvings": "Number of Calvings", "abortion": "Abortion History",
-        "infertility": "Infertility/Repeat Breeder", "vaccination": "Vaccination Status",
-        "sample": "Sample Type", "test": "Test Type",
-        "retained": "Retained Placenta/Stillbirth", "disposal": "Proper Disposal of Aborted Fetuses",
-        "predict_btn": "Run Prediction",
-        "results_header": "Prediction Results", "pred_res": "Predicted Status:",
-        "conf": "Confidence Score:", "prob_header": "Probability Distribution",
-        "chart_title": "Class Distribution", "logout": "Logout", "login_sub": "Login",
-        "ai_advice_header": "Veterinary Consultation",
-        "ai_loading": "Analyzing data and generating recommendations...",
-        "system_prompt": "You are a senior veterinary expert. Analyzing animal data: {}. Prediction Result: {}. Confidence: {}%. If result is Positive, strongly advise immediate isolation and confirmatory lab testing (RBPT/ELISA). Provide 3-4 clear, actionable steps for the farmer in English.",
-        "chatbot_button": "Ask Veterinary Assistant",
-        "chatbot_title": "Veterinary Assistant",
-        "chatbot_subtitle": "Ask questions about Brucellosis, milk safety, and animal health",
-        "chat_placeholder": "Type your question here...",
-        "chat_system": "You are a veterinary consultant specializing in Brucellosis and dairy animal health. Answer questions about: Brucellosis disease, symptoms in animals, transmission, prevention, vaccination, milk safety, treatment, diagnosis tests (RBPT/ELISA/MRT), farm biosecurity, and general cattle/buffalo health. Provide clear, practical advice in English. Keep answers concise (3-5 sentences) unless detailed explanation is requested."
+  const translations = {
+    English: {
+      dashboard: 'Dashboard',
+      newPrediction: 'New Prediction',
+      history: 'History',
+      analytics: 'Analytics',
+      aiAssistant: 'AI Assistant',
+      guidelines: 'Guidelines',
+      settings: 'Settings',
+      logout: 'Logout',
+      welcome: 'Welcome to Brucellosis Prediction System',
+      subtitle: 'AI-powered disease prediction and veterinary consultation'
     },
-    "Hindi": {
-        "welcome": "ब्रुसेलोसिस भविष्यवाणी प्रणाली में आपका स्वागत है",
-        "title": "ब्रुसेलोसिस भविष्यवाणी मॉडल",
-        "user_greet": "आपका स्वागत है, {}",
-        "input_header": "पशु जानकारी",
-        "age": "आयु (वर्ष)", "breed": "नस्ल/प्रजाति", "sex": "लिंग",
-        "calvings": "बछड़े की संख्या", "abortion": "गर्भपात का इतिहास",
-        "infertility": "बांझपन", "vaccination": "टीकाकरण की स्थिति",
-        "sample": "नमूना प्रकार", "test": "परीक्षण प्रकार",
-        "retained": "जेर रुकना/मृत प्रसव", "disposal": "भ्रूण का निपटान",
-        "predict_btn": "भविष्यवाणी करें",
-        "results_header": "परिणाम", "pred_res": "अनुमानित स्थिति:",
-        "conf": "भरोसा:", "prob_header": "संभावना विश्लेषण",
-        "chart_title": "संभावना चार्ट", "logout": "लॉगआउट", "login_sub": "लॉगिन",
-        "ai_advice_header": "पशु चिकित्सक सलाह",
-        "ai_loading": "डेटा का विश्लेषण और सुझाव तैयार किए जा रहे हैं...",
-        "system_prompt": "आप एक वरिष्ठ पशु चिकित्सा विशेषज्ञ हैं। पशु डेटा: {}. भविष्यवाणी परिणाम: {}. भरोसा: {}%. यदि परिणाम पॉजिटिव है, तो तुरंत पशु को अलग करने और लैब टेस्टिंग की सलाह दें। किसान के लिए हिंदी में 3-4 स्पष्ट और व्यावहारिक सुझाव दें।",
-        "chatbot_button": "पशु चिकित्सक से पूछें",
-        "chatbot_title": "पशु चिकित्सा सहायक",
-        "chatbot_subtitle": "ब्रुसेलोसिस, दूध की सुरक्षा और पशु स्वास्थ्य के बारे में पूछें",
-        "chat_placeholder": "अपना प्रश्न यहाँ लिखें...",
-        "chat_system": "आप एक पशु चिकित्सा सलाहकार हैं जो ब्रुसेलोसिस और डेयरी पशु स्वास्थ्य में विशेषज्ञता रखते हैं। इन विषयों पर सवालों के जवाब दें: ब्रुसेलोसिस रोग, पशुओं में लक्षण, संचरण, रोकथाम, टीकाकरण, दूध की सुरक्षा, उपचार, निदान परीक्षण, फार्म बायोसिक्योरिटी, और सामान्य गाय/भैंस स्वास्थ्य। हिंदी में स्पष्ट, व्यावहारिक सलाह दें।"
+    Hindi: {
+      dashboard: 'डैशबोर्ड',
+      newPrediction: 'नई भविष्यवाणी',
+      history: 'इतिहास',
+      analytics: 'विश्लेषण',
+      aiAssistant: 'AI सहायक',
+      guidelines: 'दिशानिर्देश',
+      settings: 'सेटिंग्स',
+      logout: 'लॉगआउट',
+      welcome: 'ब्रुसेलोसिस भविष्यवाणी प्रणाली में आपका स्वागत है',
+      subtitle: 'AI-संचालित रोग भविष्यवाणी और पशु चिकित्सा परामर्श'
     }
-}
+  };
 
-# --- MODEL LOADING ---
-MODEL_ARTIFACTS_DIR = 'model_artifacts/'
-USERS_FILE = MODEL_ARTIFACTS_DIR + 'users.json'
-GOOGLE_SHEET_ID = '159z65oDmaBPymwndIHkNVbK1Q6_GMmFc7xGcJ2fsozY'
+  const t = translations[language];
 
-if 'logged_in' not in st.session_state:
-    st.session_state['logged_in'] = False
-if 'chat_history' not in st.session_state:
-    st.session_state['chat_history'] = []
-if 'show_chatbot' not in st.session_state:
-    st.session_state['show_chatbot'] = False
-if 'otp_sent' not in st.session_state:
-    st.session_state['otp_sent'] = False
-if 'otp_code' not in st.session_state:
-    st.session_state['otp_code'] = None
-if 'otp_timestamp' not in st.session_state:
-    st.session_state['otp_timestamp'] = None
-if 'pending_user_data' not in st.session_state:
-    st.session_state['pending_user_data'] = None
+  const handlePrediction = () => {
+    // Simulate prediction
+    const mockResult = {
+      status: Math.random() > 0.5 ? 'Positive' : 'Negative',
+      confidence: (Math.random() * 30 + 70).toFixed(1),
+      probabilities: {
+        negative: Math.random() * 100,
+        positive: Math.random() * 100,
+        uncertain: Math.random() * 20
+      }
+    };
+    setPredictionResult(mockResult);
+  };
 
-def generate_otp():
-    """Generate 6-digit OTP"""
-    return str(random.randint(100000, 999999))
+  const handleChatSend = () => {
+    if (chatInput.trim()) {
+      setChatHistory([...chatHistory, 
+        { role: 'user', content: chatInput },
+        { role: 'assistant', content: 'This is a simulated AI response. In the actual app, this would be powered by Gemini AI providing veterinary advice.' }
+      ]);
+      setChatInput('');
+    }
+  };
 
-def send_otp_email(recipient_email, otp_code):
-    """Send OTP via email"""
-    try:
-        smtp_user = st.secrets["email"]["smtp_user"]
-        smtp_password = st.secrets["email"]["smtp_password"]
-        
-        msg = MIMEMultipart()
-        msg['From'] = smtp_user
-        msg['To'] = recipient_email
-        msg['Subject'] = "Brucellosis App - Email Verification OTP"
-        
-        body = f"""
-        Hello,
-        
-        Your OTP for Brucellosis Prediction App registration is: {otp_code}
-        
-        This OTP is valid for 10 minutes.
-        
-        If you did not request this, please ignore this email.
-        
-        Best regards,
-        Brucellosis App Team
-        """
-        
-        msg.attach(MIMEText(body, 'plain'))
-        
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(smtp_user, smtp_password)
-        server.send_message(msg)
-        server.quit()
-        
-        return True
-    except Exception as e:
-        st.error(f"Failed to send OTP: {e}")
-        return False
-
-def verify_otp(entered_otp):
-    """Verify if entered OTP is correct and not expired"""
-    if st.session_state['otp_code'] is None:
-        return False, "No OTP sent"
-    
-    if time.time() - st.session_state['otp_timestamp'] > 600:
-        return False, "OTP expired. Please request a new one."
-    
-    if entered_otp == st.session_state['otp_code']:
-        return True, "OTP verified successfully"
-    else:
-        return False, "Invalid OTP. Please try again."
-
-def connect_to_google_sheet():
-    """Connect to Google Sheets"""
-    try:
-        scope = ['https://spreadsheets.google.com/feeds',
-                 'https://www.googleapis.com/auth/drive']
-        
-        creds_dict = st.secrets["gcp_service_account"]
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-        client = gspread.authorize(creds)
-        
-        sheet = client.open_by_key(GOOGLE_SHEET_ID).sheet1
-        return sheet
-    except Exception as e:
-        st.error(f"Google Sheets connection error: {e}")
-        return None
-
-def save_user_to_google_sheet(email, name, phone, location):
-    """Save new user registration to Google Sheet"""
-    try:
-        sheet = connect_to_google_sheet()
-        if sheet is None:
-            return False
-        
-        try:
-            headers = sheet.row_values(1)
-            if not headers:
-                sheet.append_row(['Email', 'Name', 'Phone', 'Location', 'Registration Date'])
-        except:
-            sheet.append_row(['Email', 'Name', 'Phone', 'Location', 'Registration Date'])
-        
-        registration_date = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
-        sheet.append_row([email, name, phone, location, registration_date])
-        
-        st.success("User data saved successfully")
-        return True
-    except Exception as e:
-        st.error(f"Error saving to Google Sheet: {e}")
-        return False
-
-def register_user(email, password, name, phone, location):
-    """Register new user in JSON and Google Sheet"""
-    try:
-        if os.path.exists(USERS_FILE):
-            with open(USERS_FILE, 'r') as f:
-                users = json.load(f)
-        else:
-            users = {}
-        
-        if email in users:
-            return False, "User already exists"
-        
-        users[email] = pbkdf2_sha256.hash(password)
-        with open(USERS_FILE, 'w') as f:
-            json.dump(users, f)
-        
-        if save_user_to_google_sheet(email, name, phone, location):
-            return True, "Registration successful"
-        else:
-            return False, "User created but Google Sheet save failed"
-            
-    except Exception as e:
-        return False, f"Registration error: {e}"
-
-@st.cache_resource
-def load_all_artifacts():
-    try:
-        with open(MODEL_ARTIFACTS_DIR + 'best_model.pkl', 'rb') as f: m = pickle.load(f)
-        with open(MODEL_ARTIFACTS_DIR + 'le_dict.pkl', 'rb') as f: ld = pickle.load(f)
-        with open(MODEL_ARTIFACTS_DIR + 'le_target.pkl', 'rb') as f: lt = pickle.load(f)
-        with open(MODEL_ARTIFACTS_DIR + 'scaler.pkl', 'rb') as f: s = pickle.load(f)
-        with open(MODEL_ARTIFACTS_DIR + 'feature_names.pkl', 'rb') as f: fn = pickle.load(f)
-        return m, ld, lt, s, fn
-    except Exception as e:
-        st.error(f"Error loading model artifacts: {e}")
-        return None, None, None, None, None
-
-best_model, le_dict, le_target, scaler, feature_names = load_all_artifacts()
-
-# --- CUSTOM CSS ---
-st.markdown("""
-<style>
-    /* Background pattern */
-    .stApp {
-        background: #ffffff;
-        background-attachment: fixed;
-    }
-    
-    .stApp::before {
-        content: "";
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-image: 
-            radial-gradient(circle at 10% 20%, rgba(102, 126, 234, 0.05) 0%, transparent 50%),
-            radial-gradient(circle at 90% 80%, rgba(118, 75, 162, 0.05) 0%, transparent 50%),
-            radial-gradient(circle at 50% 50%, rgba(239, 68, 68, 0.03) 0%, transparent 50%);
-        background-size: 100% 100%;
-        animation: float 15s ease-in-out infinite;
-        pointer-events: none;
-        z-index: 0;
-    }
-    
-    @keyframes float {
-        0%, 100% {
-            transform: translate(0, 0);
-        }
-        33% {
-            transform: translate(30px, -30px);
-        }
-        66% {
-            transform: translate(-20px, 20px);
-        }
-    }
-    
-    .main .block-container {
-        background-color: rgba(255, 255, 255, 0.9);
-        border-radius: 1rem;
-        padding: 2rem;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
-        position: relative;
-        z-index: 1;
-        backdrop-filter: blur(10px);
-    }
-    
-    .main-header {
-        font-size: 2.5rem;
-        font-weight: 600;
-        color: #1f2937;
-        margin-bottom: 0.5rem;
-        animation: fadeInDown 0.8s ease-out;
-    }
-    
-    .sub-header {
-        font-size: 1.1rem;
-        color: #6b7280;
-        margin-bottom: 2rem;
-        animation: fadeInUp 0.8s ease-out;
-    }
-    
-    @keyframes fadeInDown {
-        from {
-            opacity: 0;
-            transform: translateY(-20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    @keyframes fadeInUp {
-        from {
-            opacity: 0;
-            transform: translateY(20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    .result-box {
-        padding: 1.5rem;
-        border-radius: 0.5rem;
-        margin: 1rem 0;
-        border-left: 4px solid;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        animation: slideIn 0.5s ease-out;
-    }
-    
-    @keyframes slideIn {
-        from {
-            opacity: 0;
-            transform: translateX(-20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateX(0);
-        }
-    }
-    
-    .positive-result {
-        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
-        border-left-color: #dc2626;
-    }
-    
-    .negative-result {
-        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-        border-left-color: #059669;
-    }
-    
-    .info-card {
-        background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
-        padding: 1rem;
-        border-radius: 0.375rem;
-        margin: 0.5rem 0;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        animation: fadeIn 0.6s ease-out;
-    }
-    
-    @keyframes fadeIn {
-        from {
-            opacity: 0;
-        }
-        to {
-            opacity: 1;
-        }
-    }
-    
-    /* Primary Button Styling */
-    .stButton>button[kind="primary"] {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        border-radius: 0.5rem;
-        padding: 0.75rem 1.5rem;
-        font-weight: 600;
-        font-size: 1rem;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-        transition: all 0.3s ease;
-    }
-    
-    .stButton>button[kind="primary"]:hover {
-        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
-        transform: translateY(-2px);
-    }
-    
-    /* Secondary Button Styling */
-    .stButton>button {
-        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-        color: white;
-        border: none;
-        border-radius: 0.5rem;
-        padding: 0.6rem 1.2rem;
-        font-weight: 500;
-        box-shadow: 0 3px 10px rgba(59, 130, 246, 0.3);
-        transition: all 0.3s ease;
-    }
-    
-    .stButton>button:hover {
-        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-        box-shadow: 0 5px 15px rgba(59, 130, 246, 0.5);
-        transform: translateY(-2px);
-    }
-    
-    .chat-container {
-        border: 1px solid #e5e7eb;
-        border-radius: 0.5rem;
-        padding: 1rem;
-        margin: 1rem 0;
-        max-height: 400px;
-        overflow-y: auto;
-        background-color: rgba(255, 255, 255, 0.95);
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-    
-    .chat-message {
-        padding: 0.75rem;
-        margin: 0.5rem 0;
-        border-radius: 0.375rem;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        animation: messageSlide 0.4s ease-out;
-    }
-    
-    @keyframes messageSlide {
-        from {
-            opacity: 0;
-            transform: translateY(10px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    .user-message {
-        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-        margin-left: 2rem;
-    }
-    
-    .assistant-message {
-        background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
-        margin-right: 2rem;
-    }
-    
-    /* Sidebar Styling */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #fafafa 0%, #f5f5f5 100%);
-    }
-    
-    /* Input Fields */
-    .stTextInput>div>div>input, .stNumberInput>div>div>input, .stSelectbox>div>div>select {
-        border-radius: 0.375rem;
-        border: 2px solid #e5e7eb;
-        transition: all 0.3s ease;
-    }
-    
-    .stTextInput>div>div>input:focus, .stNumberInput>div>div>input:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# --- UI LOGIC ---
-st.set_page_config(page_title="Brucellosis Prediction System", layout="wide", initial_sidebar_state="expanded")
-selected_lang = st.sidebar.selectbox("Language / भाषा", ["English", "Hindi"])
-t = translations[selected_lang]
-
-if not st.session_state['logged_in']:
-    st.markdown(f'<div class="main-header">{t["welcome"]}</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Veterinary diagnostic system for Brucellosis detection</div>', unsafe_allow_html=True)
-    
-    tab1, tab2 = st.tabs(["Login", "Register"])
-    
-    with tab1:
-        st.subheader(t["login_sub"])
-        with st.form("login_form"):
-            email = st.text_input("Email Address")
-            password = st.text_input("Password", type="password")
-            submit = st.form_submit_button("Login", use_container_width=True)
-            
-            if submit:
-                try:
-                    with open(USERS_FILE, 'r') as f: users = json.load(f)
-                    if email in users and pbkdf2_sha256.verify(password, users[email]):
-                        st.session_state.update(logged_in=True, username=email)
-                        st.rerun()
-                    else: 
-                        st.error("Invalid email or password")
-                except: 
-                    st.error("User database not found")
-    
-    with tab2:
-        st.subheader("Create New Account")
-        
-        if not st.session_state['otp_sent']:
-            with st.form("register_form"):
-                reg_name = st.text_input("Full Name")
-                reg_email = st.text_input("Email Address")
-                reg_phone = st.text_input("Phone Number")
-                reg_location = st.text_input("Location (City/Village)")
-                reg_password = st.text_input("Password", type="password")
-                reg_confirm = st.text_input("Confirm Password", type="password")
-                submit_reg = st.form_submit_button("Send Verification Code", use_container_width=True)
-                
-                if submit_reg:
-                    if not all([reg_name, reg_email, reg_phone, reg_location, reg_password]):
-                        st.error("Please fill in all fields")
-                    elif reg_password != reg_confirm:
-                        st.error("Passwords do not match")
-                    elif len(reg_password) < 6:
-                        st.error("Password must be at least 6 characters")
-                    else:
-                        try:
-                            if os.path.exists(USERS_FILE):
-                                with open(USERS_FILE, 'r') as f:
-                                    users = json.load(f)
-                                if reg_email in users:
-                                    st.error("This email is already registered")
-                                else:
-                                    otp = generate_otp()
-                                    if send_otp_email(reg_email, otp):
-                                        st.session_state['otp_code'] = otp
-                                        st.session_state['otp_timestamp'] = time.time()
-                                        st.session_state['otp_sent'] = True
-                                        st.session_state['pending_user_data'] = {
-                                            'email': reg_email,
-                                            'password': reg_password,
-                                            'name': reg_name,
-                                            'phone': reg_phone,
-                                            'location': reg_location
-                                        }
-                                        st.success(f"Verification code sent to {reg_email}")
-                                        st.rerun()
-                            else:
-                                otp = generate_otp()
-                                if send_otp_email(reg_email, otp):
-                                    st.session_state['otp_code'] = otp
-                                    st.session_state['otp_timestamp'] = time.time()
-                                    st.session_state['otp_sent'] = True
-                                    st.session_state['pending_user_data'] = {
-                                        'email': reg_email,
-                                        'password': reg_password,
-                                        'name': reg_name,
-                                        'phone': reg_phone,
-                                        'location': reg_location
-                                    }
-                                    st.success(f"Verification code sent to {reg_email}")
-                                    st.rerun()
-                        except Exception as e:
-                            st.error(f"Error: {e}")
-        
-        else:
-            st.info(f"Verification code sent to {st.session_state['pending_user_data']['email']}")
-            st.caption("Enter the 6-digit code sent to your email (valid for 10 minutes)")
-            
-            entered_otp = st.text_input("Verification Code", max_chars=6)
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("Verify Code", use_container_width=True):
-                    if entered_otp:
-                        is_valid, message = verify_otp(entered_otp)
-                        if is_valid:
-                            user_data = st.session_state['pending_user_data']
-                            success, reg_message = register_user(
-                                user_data['email'],
-                                user_data['password'],
-                                user_data['name'],
-                                user_data['phone'],
-                                user_data['location']
-                            )
-                            if success:
-                                st.success(reg_message + " Please login now.")
-                                st.session_state['otp_sent'] = False
-                                st.session_state['otp_code'] = None
-                                st.session_state['otp_timestamp'] = None
-                                st.session_state['pending_user_data'] = None
-                                time.sleep(2)
-                                st.rerun()
-                            else:
-                                st.error(reg_message)
-                        else:
-                            st.error(message)
-                    else:
-                        st.error("Please enter the verification code")
-            
-            with col2:
-                if st.button("Resend Code", use_container_width=True):
-                    otp = generate_otp()
-                    if send_otp_email(st.session_state['pending_user_data']['email'], otp):
-                        st.session_state['otp_code'] = otp
-                        st.session_state['otp_timestamp'] = time.time()
-                        st.success("New code sent")
-                        st.rerun()
-            
-            if st.button("Back to Registration", use_container_width=True):
-                st.session_state['otp_sent'] = False
-                st.session_state['otp_code'] = None
-                st.session_state['otp_timestamp'] = None
-                st.session_state['pending_user_data'] = None
-                st.rerun()
-else:
-    st.markdown(f'<div class="main-header">{t["title"]}</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="sub-header">{t["user_greet"].format(st.session_state["username"])}</div>', unsafe_allow_html=True)
-    
-    if st.sidebar.button(t["logout"], use_container_width=True):
-        st.session_state.update(logged_in=False, username=None)
-        st.rerun()
-
-    st.sidebar.header(t["input_header"])
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        age = st.number_input(t["age"], min_value=0, max_value=20, value=5, step=1)
-        breed = st.selectbox(t["breed"], options=sorted(list(le_dict.get('Breed species').classes_)))
-        sex = st.selectbox(t["sex"], options=sorted(list(le_dict.get('Sex').classes_)))
-        calvings = st.number_input(t["calvings"], min_value=0, max_value=15, value=1, step=1)
-        abortion = st.selectbox(t["abortion"], options=sorted(list(le_dict.get('Abortion History (Yes No)').classes_)))
-
-    with col2:
-        infertility = st.selectbox(t["infertility"], options=sorted(list(le_dict.get('Infertility Repeat breeder(Yes No)').classes_)))
-        vaccine = st.selectbox(t["vaccination"], options=sorted(list(le_dict.get('Brucella vaccination status (Yes No)').classes_)))
-        sample = st.selectbox(t["sample"], options=sorted(list(le_dict.get('Sample Type(Serum Milk)').classes_)))
-        test = st.selectbox(t["test"], options=sorted(list(le_dict.get('Test Type (RBPT ELISA MRT)').classes_)))
-        retained = st.selectbox(t["retained"], options=sorted(list(le_dict.get('Retained Placenta Stillbirth(Yes No No Data)').classes_)))
-        disposal = st.selectbox(t["disposal"], options=sorted(list(le_dict.get('Proper Disposal of Aborted Fetuses (Yes No)').classes_)))
-
-    input_data = {
-        'Age': age, 'Breed species': breed, 'Sex': sex, 'Calvings': calvings,
-        'Abortion History (Yes No)': abortion, 'Infertility Repeat breeder(Yes No)': infertility,
-        'Brucella vaccination status (Yes No)': vaccine, 'Sample Type(Serum Milk)': sample,
-        'Test Type (RBPT ELISA MRT)': test, 'Retained Placenta Stillbirth(Yes No No Data)': retained,
-        'Proper Disposal of Aborted Fetuses (Yes No)': disposal
-    }
-
-    if st.button(t["predict_btn"], use_container_width=True, type="primary"):
-        input_df = pd.DataFrame([input_data])
-        
-        for col in input_df.columns:
-            if col in le_dict and input_df[col].dtype == 'object':
-                input_df[col] = le_dict[col].transform(input_df[col])
-
-        input_df = input_df.reindex(columns=feature_names, fill_value=0)
-
-        is_linear = isinstance(best_model, (MLPClassifier, SVC, LogisticRegression, KNeighborsClassifier))
-        processed = scaler.transform(input_df) if is_linear else input_df.values
-        
-        try:
-            pred_idx = best_model.predict(processed)[0]
-            probs = best_model.predict_proba(processed)[0]
-            res_label = le_target.inverse_transform([pred_idx])[0]
-            conf_score = probs.max()
-
-            st.markdown("---")
-            st.subheader(t["results_header"])
-            
-            ui_res = "पॉजिटिव (Positive)" if (selected_lang == "Hindi" and "Positive" in res_label) else \
-                     "नेगेटिव (Negative)" if (selected_lang == "Hindi" and "Negative" in res_label) else res_label
-            
-            result_class = "positive-result" if "Positive" in res_label else "negative-result"
-            
-            st.markdown(f'''
-            <div class="result-box {result_class}">
-                <h3>{t["pred_res"]} {ui_res}</h3>
-                <p>{t["conf"]} {conf_score:.2%}</p>
+  // Login Screen
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl overflow-hidden">
+          <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-8 text-white">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center">
+                <Activity className="text-emerald-600" size={28} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold">BrucellosisAI</h1>
+                <p className="text-emerald-100 text-sm">Prediction System</p>
+              </div>
             </div>
-            ''', unsafe_allow_html=True)
+            <p className="text-emerald-50">{t.subtitle}</p>
+          </div>
 
-            if ai_enabled:
-                st.subheader(t["ai_advice_header"])
-                with st.spinner(t["ai_loading"]):
-                    try:
-                        auto_prompt = t["system_prompt"].format(json.dumps(input_data), res_label, round(conf_score*100, 2))
-                        response = gemini_model.generate_content(auto_prompt)
-                        st.markdown(f'<div class="info-card">{response.text}</div>', unsafe_allow_html=True)
-                    except Exception as ai_e:
-                        st.error(f"AI Generation Error: {ai_e}")
+          <div className="p-8">
+            <div className="flex gap-2 mb-6">
+              <button
+                onClick={() => setActiveTab('login')}
+                className={`flex-1 py-2 rounded-lg font-medium transition-all ${
+                  activeTab === 'login' 
+                    ? 'bg-emerald-500 text-white' 
+                    : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                Login
+              </button>
+              <button
+                onClick={() => setActiveTab('register')}
+                className={`flex-1 py-2 rounded-lg font-medium transition-all ${
+                  activeTab === 'register' 
+                    ? 'bg-emerald-500 text-white' 
+                    : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                Register
+              </button>
+            </div>
 
-            st.write("---")
-            st.subheader(t["prob_header"])
-            prob_df = pd.DataFrame({'Probability': probs}, index=le_target.classes_)
-            fig, ax = plt.subplots(figsize=(8, 3))
-            sns.barplot(x=prob_df.index, y=prob_df['Probability'], palette='viridis', ax=ax)
-            ax.set_ylabel('Probability')
-            ax.set_xlabel('Class')
-            st.pyplot(fig)
-            
-        except Exception as e:
-            st.error(f"Prediction Error: {e}")
+            {activeTab === 'login' ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                  <input
+                    type="email"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
+                    placeholder="Enter your email"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                  <input
+                    type="password"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
+                    placeholder="Enter your password"
+                  />
+                </div>
+                <button
+                  onClick={() => setIsLoggedIn(true)}
+                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all"
+                >
+                  Login
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                  placeholder="Full Name"
+                />
+                <input
+                  type="email"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                  placeholder="Email Address"
+                />
+                <input
+                  type="tel"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                  placeholder="Phone Number"
+                />
+                <input
+                  type="text"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                  placeholder="Location"
+                />
+                <input
+                  type="password"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                  placeholder="Password"
+                />
+                <button className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all">
+                  Register
+                </button>
+              </div>
+            )}
 
-    if ai_enabled:
-        st.markdown("---")
-        if st.button(t["chatbot_button"], use_container_width=True):
-            st.session_state['show_chatbot'] = not st.session_state['show_chatbot']
-        
-        if st.session_state['show_chatbot']:
-            st.subheader(t["chatbot_title"])
-            st.caption(t["chatbot_subtitle"])
-            
-            st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-            for msg in st.session_state['chat_history']:
-                if msg['role'] == 'user':
-                    st.markdown(f'<div class="chat-message user-message"><strong>You:</strong> {msg["content"]}</div>', unsafe_allow_html=True)
-                else:
-                    st.markdown(f'<div class="chat-message assistant-message"><strong>Assistant:</strong> {msg["content"]}</div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            user_question = st.text_input(t["chat_placeholder"])
-            
-            col_send, col_clear = st.columns([4, 1])
-            with col_send:
-                if st.button("Send", use_container_width=True) and user_question:
-                    st.session_state['chat_history'].append({"role": "user", "content": user_question})
-                    
-                    with st.spinner("Generating response..."):
-                        try:
-                            full_prompt = f"{t['chat_system']}\n\nUser Question: {user_question}"
-                            response = gemini_model.generate_content(full_prompt)
-                            ai_response = response.text
-                            st.session_state['chat_history'].append({"role": "assistant", "content": ai_response})
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Chat Error: {e}")
-            
-            with col_clear:
-                if st.button("Clear Chat", use_container_width=True):
-                    st.session_state['chat_history'] = []
-                    st.rerun()
-    
-    st.markdown("---")
-    st.markdown("Developed for Veterinary Health Solutions")
+            <div className="mt-6 flex justify-center gap-2 text-sm">
+              <span className="text-gray-600">Language:</span>
+              <button
+                onClick={() => setLanguage('English')}
+                className={`font-medium ${language === 'English' ? 'text-emerald-600' : 'text-gray-400'}`}
+              >
+                English
+              </button>
+              <span className="text-gray-400">/</span>
+              <button
+                onClick={() => setLanguage('Hindi')}
+                className={`font-medium ${language === 'Hindi' ? 'text-emerald-600' : 'text-gray-400'}`}
+              >
+                हिंदी
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Main Dashboard
+  return (
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <div className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-white border-r border-gray-200 transition-all duration-300 flex flex-col`}>
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center">
+              <Activity className="text-white" size={24} />
+            </div>
+            {sidebarOpen && (
+              <div>
+                <h1 className="text-lg font-bold text-gray-800">BrucellosisAI</h1>
+                <p className="text-xs text-gray-500">Prediction System</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <nav className="flex-1 p-4 space-y-2">
+          {[
+            { icon: BarChart3, label: t.dashboard },
+            { icon: Activity, label: t.newPrediction },
+            { icon: FileText, label: t.history },
+            { icon: TrendingUp, label: t.analytics }
+          ].map((item, idx) => (
+            <button
+              key={idx}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-emerald-50 text-gray-700 hover:text-emerald-600 transition-all group"
+            >
+              <item.icon size={20} />
+              {sidebarOpen && <span className="font-medium">{item.label}</span>}
+            </button>
+          ))}
+
+          <div className="pt-4 border-t border-gray-200 mt-4">
+            <p className={`text-xs text-gray-400 px-4 mb-2 ${!sidebarOpen && 'hidden'}`}>RESOURCES</p>
+            {[
+              { icon: MessageSquare, label: t.aiAssistant, badge: 'AI' },
+              { icon: BookOpen, label: t.guidelines },
+              { icon: Settings, label: t.settings }
+            ].map((item, idx) => (
+              <button
+                key={idx}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-50 text-gray-600 hover:text-gray-800 transition-all"
+              >
+                <item.icon size={20} />
+                {sidebarOpen && (
+                  <>
+                    <span className="font-medium flex-1 text-left">{item.label}</span>
+                    {item.badge && (
+                      <span className="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded-full font-semibold">
+                        {item.badge}
+                      </span>
+                    )}
+                  </>
+                )}
+              </button>
+            ))}
+          </div>
+        </nav>
+
+        <div className="p-4 border-t border-gray-200">
+          {sidebarOpen && (
+            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl p-4 mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="text-white" size={20} />
+                <span className="text-white font-semibold text-sm">AI-Powered Insights</span>
+              </div>
+              <p className="text-emerald-50 text-xs mb-3">Get expert veterinary recommendations powered by advanced AI</p>
+              <button className="w-full bg-white text-emerald-600 text-sm font-semibold py-2 rounded-lg hover:shadow-lg transition-all">
+                Learn more →
+              </button>
+            </div>
+          )}
+          <button
+            onClick={() => setIsLoggedIn(false)}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-50 text-gray-600 hover:text-red-600 transition-all"
+          >
+            <LogOut size={20} />
+            {sidebarOpen && <span className="font-medium">{t.logout}</span>}
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-auto">
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 hover:bg-gray-100 rounded-lg transition"
+            >
+              {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+            <div>
+              <h2 className="text-xl font-bold text-gray-800">Brucellosis Prediction Dashboard</h2>
+              <p className="text-sm text-gray-500">{t.subtitle}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+            >
+              <option>English</option>
+              <option>हिंदी</option>
+            </select>
+            <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-semibold">
+              U
+            </div>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="p-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-lg transition-all">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Total Predictions</p>
+                  <h3 className="text-3xl font-bold text-gray-800">{stats.totalPredictions}</h3>
+                </div>
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <BarChart3 className="text-blue-600" size={24} />
+                </div>
+              </div>
+              <div className="flex items-center gap-1 text-sm">
+                <TrendingUp size={16} className="text-green-600" />
+                <span className="text-green-600 font-medium">+12.5%</span>
+                <span className="text-gray-500">vs last month</span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-lg transition-all">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Positive Cases</p>
+                  <h3 className="text-3xl font-bold text-gray-800">{stats.positiveCases}</h3>
+                </div>
+                <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+                  <Activity className="text-red-600" size={24} />
+                </div>
+              </div>
+              <div className="flex items-center gap-1 text-sm">
+                <TrendingUp size={16} className="text-red-600" />
+                <span className="text-red-600 font-medium">+3.2%</span>
+                <span className="text-gray-500">vs last month</span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-lg transition-all">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Accuracy Rate</p>
+                  <h3 className="text-3xl font-bold text-gray-800">{stats.accuracyRate}%</h3>
+                </div>
+                <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                  <TrendingUp className="text-green-600" size={24} />
+                </div>
+              </div>
+              <div className="flex items-center gap-1 text-sm">
+                <TrendingUp size={16} className="text-green-600" />
+                <span className="text-green-600 font-medium">+1.8%</span>
+                <span className="text-gray-500">vs last month</span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-lg transition-all">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">AI Consultations</p>
+                  <h3 className="text-3xl font-bold text-gray-800">{stats.aiConsultations}</h3>
+                </div>
+                <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                  <Sparkles className="text-purple-600" size={24} />
+                </div>
+              </div>
+              <div className="flex items-center gap-1 text-sm">
+                <TrendingUp size={16} className="text-purple-600" />
+                <span className="text-purple-600 font-medium">+24.1%</span>
+                <span className="text-gray-500">vs last month</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Prediction Form */}
+            <div className="lg:col-span-2 bg-white rounded-xl p-6 border border-gray-200">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-800">Animal Information Input</h3>
+                <button className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition text-sm font-medium flex items-center gap-2">
+                  <Download size={16} />
+                  Save Template
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Age (Years)</label>
+                  <input
+                    type="number"
+                    value={formData.age}
+                    onChange={(e) => setFormData({...formData, age: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                    placeholder="Enter age"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Breed/Species</label>
+                  <select
+                    value={formData.breed}
+                    onChange={(e) => setFormData({...formData, breed: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                  >
+                    <option>Select breed</option>
+                    <option>Cattle</option>
+                    <option>Buffalo</option>
+                    <option>Goat</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Sex</label>
+                  <select
+                    value={formData.sex}
+                    onChange={(e) => setFormData({...formData, sex: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                  >
+                    <option>Select sex</option>
+                    <option>Male</option>
+                    <option>Female</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Number of Calvings</label>
+                  <input
+                    type="number"
+                    value={formData.calvings}
+                    onChange={(e) => setFormData({...formData, calvings: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Abortion History</label>
+                  <select
+                    value={formData.abortion}
+                    onChange={(e) => setFormData({...formData, abortion: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                  >
+                    <option>No</option>
+                    <option>Yes</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Vaccination Status</label>
+                  <select
+                    value={formData.vaccination}
+                    onChange={(e) => setFormData({...formData, vaccination: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                  >
+                    <option>Not Vaccinated</option>
+                    <option>Vaccinated</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Sample Type</label>
+                  <select
+                    value={formData.sample}
+                    onChange={(e) => setFormData({...formData, sample: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                  >
+                    <option>Blood</option>
+                    <option>Serum</option>
+                    <option>Milk</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Test Type</label>
+                  <select
+                    value={formData.test}
+                    onChange={(e) => setFormData({...formData, test: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                  >
+                    <option>RBPT</option>
+                    <option>ELISA</option>
+                    <option>MRT</option>
+                  </select>
+                </div>
+              </div>
+
+              <button
+                onClick={handlePrediction}
+                className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2"
+              >
+                <Activity size={20} />
+                Run AI Prediction
+              </button>
+
+              {predictionResult && (
+                <div className={`mt-6 p-6 rounded-xl border-l-4 ${
+                  predictionResult.status === 'Positive' 
+                    ? 'bg-red-50 border-red-500' 
+                    : 'bg-green-50 border-green-500'
+                }`}>
+                  <h4 className="text-lg font-bold mb-2">
+                    Prediction Results: <span className={predictionResult.status === 'Positive' ? 'text-red-600' : 'text-green-600'}>
+                      {predictionResult.status}
+                    </span>
+                  </h4>
+                  <p className="text-gray-700">
+                    Confidence Score: <strong>{predictionResult.confidence}%</strong>
+                  </p>
+                  <div className="mt-4">
+                    <p className="text-sm font-medium text-gray-700 mb-2">Probability Distribution</p>
+                    <div className="space-y-2">
+                      {Object.entries(predictionResult.probabilities).map(([key, value]) => (
+                        <div key={key}>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="capitalize">{key}</span>
+                            <span>{value.toFixed(1)}%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className={`h-2 rounded-full ${
+                                key === 'negative' ? 'bg-green-500' : key === 'positive' ? 'bg-red-500' : 'bg-yellow-500'
+                              }`}
+                              style={{ width: `${value}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Right Sidebar */}
+            <div className="space-y-6">
+              {/* AI Assistant Card */}
+              <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl p-6 text-white">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center">
+                    <MessageSquare className="text-emerald-600" size={24} />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-bold text-lg">Veterinary AI Assistant</h4>
+                    <span className="text-emerald-100 text-sm flex items-center gap-1">
+                      <Sparkles size={12} />
+                      AI Powered
+                    </span>
+                  </div>
+                </div>
+                <p className="text-emerald-50 text-sm mb-4">
+                  Get instant expert advice on brucellosis, animal health, and milk safety
+                </p>
+                <button
+                  onClick={() => setShowChatbot(!showChatbot)}
+                  className="w-full bg-white text-emerald-600 py-2 rounded-lg font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                >
+                  <MessageSquare size={18} />
+                  Start Consultation
+                </button>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="bg-white rounded-xl p-6 border border-gray-200">
+                <h4 className="font-bold text-gray-800 mb-4">Quick Actions</h4>
+                <div className="space-y-2">
+                  {[
+                    { icon: Download, label: 'Export Report' },
+                    { icon: ClipboardList, label: 'Schedule Test' },
+                    { icon: BookOpen, label: 'View Guidelines' }
+                  ].map((action, idx) => (
+                    <button
+                      key={idx}
+                      className="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-gray-50 text-gray-700 transition-all group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <action.icon size={18} className="text-gray-500 group-hover:text-emerald-600 transition" />
+                        <span className="font-medium">{action.label}</span>
+                      </div>
+                      <ChevronRight size={18} className="text-gray-400 group-hover:text-emerald-600 transition" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Probability Chart */}
+              {predictionResult && (
+                <div className="bg-white rounded-xl p-6 border border-gray-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-bold text-gray-800">Probability Distribution</h4>
+                    <select className="px-3 py-1 border border-gray-300 rounded-lg text-sm outline-none">
+                      <option>Last 7 days</option>
+                      <option>Last 30 days</option>
+                    </select>
+                  </div>
+                  <div className="space-y-4">
+                    {Object.entries(predictionResult.probabilities).map(([key, value]) => (
+                      <div key={key}>
+                        <div className="flex justify-between text-sm mb-2">
+                          <span className="capitalize font-medium text-gray-700">{key}</span>
+                          <span className="font-semibold">{value.toFixed(1)}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                          <div
+                            className={`h-3 rounded-full transition-all duration-500 ${
+                              key === 'negative' ? 'bg-green-500' : 
+                              key === 'positive' ? 'bg-red-500' : 'bg-yellow-500'
+                            }`}
+                            style={{ width: `${value}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Chatbot Modal */}
+          {showChatbot && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[600px] flex flex-col shadow-2xl">
+                <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-6 rounded-t-2xl text-white flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center">
+                      <MessageSquare className="text-emerald-600" size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold">Veterinary Assistant</h3>
+                      <p className="text-emerald-100 text-sm">Ask questions about Brucellosis & animal health</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowChatbot(false)}
+                    className="w-10 h-10 bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition flex items-center justify-center"
+                  >
+                    <X className="text-white" size={20} />
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                  {chatHistory.length === 0 ? (
+                    <div className="text-center py-12">
+                      <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <MessageSquare className="text-emerald-600" size={32} />
+                      </div>
+                      <h4 className="text-lg font-semibold text-gray-800 mb-2">Start a Conversation</h4>
+                      <p className="text-gray-500 text-sm">Ask me anything about Brucellosis, animal health, or milk safety</p>
+                    </div>
+                  ) : (
+                    chatHistory.map((msg, idx) => (
+                      <div
+                        key={idx}
+                        className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`max-w-[80%] rounded-2xl p-4 ${
+                            msg.role === 'user'
+                              ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          <p className="text-sm font-semibold mb-1">
+                            {msg.role === 'user' ? 'You' : 'AI Assistant'}
+                          </p>
+                          <p className="text-sm">{msg.content}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="p-6 border-t border-gray-200">
+                  <div className="flex gap-3">
+                    <input
+                      type="text"
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleChatSend()}
+                      placeholder="Type your question here..."
+                      className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                    />
+                    <button
+                      onClick={handleChatSend}
+                      className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all"
+                    >
+                      Send
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => setChatHistory([])}
+                    className="mt-3 text-sm text-gray-500 hover:text-gray-700 transition"
+                  >
+                    Clear Chat
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="bg-white border-t border-gray-200 px-8 py-4 text-center text-sm text-gray-500">
+          Developed for Veterinary Health Solutions
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default BrucellosisApp;

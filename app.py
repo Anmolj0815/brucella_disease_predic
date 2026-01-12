@@ -269,43 +269,116 @@ best_model, le_dict, le_target, scaler, feature_names = load_all_artifacts()
 # --- CUSTOM CSS ---
 st.markdown("""
 <style>
+    /* Background pattern */
+    .stApp {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background-attachment: fixed;
+    }
+    
+    .stApp::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: 
+            radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+            radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+            radial-gradient(circle at 40% 20%, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+            radial-gradient(circle at 90% 30%, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+        background-size: 50px 50px, 80px 80px, 100px 100px, 120px 120px;
+        background-position: 0 0, 40px 60px, 130px 270px, 70px 100px;
+        pointer-events: none;
+        z-index: 0;
+    }
+    
+    .main .block-container {
+        background-color: rgba(255, 255, 255, 0.95);
+        border-radius: 1rem;
+        padding: 2rem;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        position: relative;
+        z-index: 1;
+    }
+    
     .main-header {
         font-size: 2.5rem;
         font-weight: 600;
         color: #1f2937;
         margin-bottom: 0.5rem;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
     }
+    
     .sub-header {
         font-size: 1.1rem;
         color: #6b7280;
         margin-bottom: 2rem;
     }
+    
     .result-box {
         padding: 1.5rem;
         border-radius: 0.5rem;
         margin: 1rem 0;
         border-left: 4px solid;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
+    
     .positive-result {
-        background-color: #fee2e2;
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
         border-left-color: #dc2626;
     }
+    
     .negative-result {
-        background-color: #d1fae5;
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
         border-left-color: #059669;
     }
+    
     .info-card {
-        background-color: #f3f4f6;
+        background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
         padding: 1rem;
         border-radius: 0.375rem;
         margin: 0.5rem 0;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
+    
+    /* Primary Button Styling */
+    .stButton>button[kind="primary"] {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        font-size: 1rem;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        transition: all 0.3s ease;
+    }
+    
+    .stButton>button[kind="primary"]:hover {
+        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        transform: translateY(-2px);
+    }
+    
+    /* Secondary Button Styling */
     .stButton>button {
-        width: 100%;
-        border-radius: 0.375rem;
-        padding: 0.5rem 1rem;
+        background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+        color: white;
+        border: none;
+        border-radius: 0.5rem;
+        padding: 0.6rem 1.2rem;
         font-weight: 500;
+        box-shadow: 0 3px 10px rgba(239, 68, 68, 0.3);
+        transition: all 0.3s ease;
     }
+    
+    .stButton>button:hover {
+        background: linear-gradient(135deg, #ef4444 0%, #f59e0b 100%);
+        box-shadow: 0 5px 15px rgba(239, 68, 68, 0.5);
+        transform: translateY(-2px);
+    }
+    
     .chat-container {
         border: 1px solid #e5e7eb;
         border-radius: 0.5rem;
@@ -313,19 +386,42 @@ st.markdown("""
         margin: 1rem 0;
         max-height: 400px;
         overflow-y: auto;
+        background-color: rgba(255, 255, 255, 0.9);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
+    
     .chat-message {
         padding: 0.75rem;
         margin: 0.5rem 0;
         border-radius: 0.375rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
+    
     .user-message {
-        background-color: #dbeafe;
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
         margin-left: 2rem;
     }
+    
     .assistant-message {
-        background-color: #f3f4f6;
+        background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
         margin-right: 2rem;
+    }
+    
+    /* Sidebar Styling */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    }
+    
+    /* Input Fields */
+    .stTextInput>div>div>input, .stNumberInput>div>div>input, .stSelectbox>div>div>select {
+        border-radius: 0.375rem;
+        border: 2px solid #e5e7eb;
+        transition: border-color 0.3s ease;
+    }
+    
+    .stTextInput>div>div>input:focus, .stNumberInput>div>div>input:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     }
 </style>
 """, unsafe_allow_html=True)

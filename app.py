@@ -271,7 +271,7 @@ st.markdown("""
 <style>
     /* Background pattern */
     .stApp {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: #ffffff;
         background-attachment: fixed;
     }
     
@@ -283,23 +283,35 @@ st.markdown("""
         width: 100%;
         height: 100%;
         background-image: 
-            radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
-            radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
-            radial-gradient(circle at 40% 20%, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-            radial-gradient(circle at 90% 30%, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
-        background-size: 50px 50px, 80px 80px, 100px 100px, 120px 120px;
-        background-position: 0 0, 40px 60px, 130px 270px, 70px 100px;
+            radial-gradient(circle at 10% 20%, rgba(102, 126, 234, 0.05) 0%, transparent 50%),
+            radial-gradient(circle at 90% 80%, rgba(118, 75, 162, 0.05) 0%, transparent 50%),
+            radial-gradient(circle at 50% 50%, rgba(239, 68, 68, 0.03) 0%, transparent 50%);
+        background-size: 100% 100%;
+        animation: float 15s ease-in-out infinite;
         pointer-events: none;
         z-index: 0;
     }
     
+    @keyframes float {
+        0%, 100% {
+            transform: translate(0, 0);
+        }
+        33% {
+            transform: translate(30px, -30px);
+        }
+        66% {
+            transform: translate(-20px, 20px);
+        }
+    }
+    
     .main .block-container {
-        background-color: rgba(255, 255, 255, 0.95);
+        background-color: rgba(255, 255, 255, 0.9);
         border-radius: 1rem;
         padding: 2rem;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
         position: relative;
         z-index: 1;
+        backdrop-filter: blur(10px);
     }
     
     .main-header {
@@ -307,13 +319,36 @@ st.markdown("""
         font-weight: 600;
         color: #1f2937;
         margin-bottom: 0.5rem;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        animation: fadeInDown 0.8s ease-out;
     }
     
     .sub-header {
         font-size: 1.1rem;
         color: #6b7280;
         margin-bottom: 2rem;
+        animation: fadeInUp 0.8s ease-out;
+    }
+    
+    @keyframes fadeInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
     
     .result-box {
@@ -322,6 +357,18 @@ st.markdown("""
         margin: 1rem 0;
         border-left: 4px solid;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        animation: slideIn 0.5s ease-out;
+    }
+    
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
     }
     
     .positive-result {
@@ -335,11 +382,21 @@ st.markdown("""
     }
     
     .info-card {
-        background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+        background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
         padding: 1rem;
         border-radius: 0.375rem;
         margin: 0.5rem 0;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        animation: fadeIn 0.6s ease-out;
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
     }
     
     /* Primary Button Styling */
@@ -363,19 +420,19 @@ st.markdown("""
     
     /* Secondary Button Styling */
     .stButton>button {
-        background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
         color: white;
         border: none;
         border-radius: 0.5rem;
         padding: 0.6rem 1.2rem;
         font-weight: 500;
-        box-shadow: 0 3px 10px rgba(239, 68, 68, 0.3);
+        box-shadow: 0 3px 10px rgba(59, 130, 246, 0.3);
         transition: all 0.3s ease;
     }
     
     .stButton>button:hover {
-        background: linear-gradient(135deg, #ef4444 0%, #f59e0b 100%);
-        box-shadow: 0 5px 15px rgba(239, 68, 68, 0.5);
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        box-shadow: 0 5px 15px rgba(59, 130, 246, 0.5);
         transform: translateY(-2px);
     }
     
@@ -386,7 +443,7 @@ st.markdown("""
         margin: 1rem 0;
         max-height: 400px;
         overflow-y: auto;
-        background-color: rgba(255, 255, 255, 0.9);
+        background-color: rgba(255, 255, 255, 0.95);
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
     
@@ -395,6 +452,18 @@ st.markdown("""
         margin: 0.5rem 0;
         border-radius: 0.375rem;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        animation: messageSlide 0.4s ease-out;
+    }
+    
+    @keyframes messageSlide {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
     
     .user-message {
@@ -409,14 +478,14 @@ st.markdown("""
     
     /* Sidebar Styling */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+        background: linear-gradient(180deg, #fafafa 0%, #f5f5f5 100%);
     }
     
     /* Input Fields */
     .stTextInput>div>div>input, .stNumberInput>div>div>input, .stSelectbox>div>div>select {
         border-radius: 0.375rem;
         border: 2px solid #e5e7eb;
-        transition: border-color 0.3s ease;
+        transition: all 0.3s ease;
     }
     
     .stTextInput>div>div>input:focus, .stNumberInput>div>div>input:focus {

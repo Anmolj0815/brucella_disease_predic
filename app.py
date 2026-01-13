@@ -72,13 +72,13 @@ translations = {
         "retained": "Retained Placenta/Stillbirth",
         "disposal": "Proper Disposal of Aborted Fetuses",
         "infertility": "Infertility/Repeat Breeder",
-        "run_prediction": "🔬 Run AI Prediction",
+        "run_prediction": "Run AI Prediction",
         "prediction_results": "Prediction Results",
         "probability_dist": "Probability Distribution",
         "run_prediction_msg": "Run a prediction to see results",
         "vet_assistant": "Veterinary AI Assistant",
         "vet_subtitle": "Get instant expert advice on brucellosis, milk safety, and animal health",
-        "start_consultation": "🩺 Start Consultation",
+        "start_consultation": "Start Consultation",
         "quick_actions": "Quick Actions",
         "export_report": "Export Report",
         "schedule_test": "Schedule Test",
@@ -92,7 +92,10 @@ translations = {
         "logout": "Logout",
         "ai_insights": "AI-Powered Insights",
         "dashboard_menu": "Dashboard",
-        "resources": "RESOURCES"
+        "resources": "RESOURCES",
+        "save_template": "Save Template",
+        "predicted_status": "Predicted Status:",
+        "confidence": "Confidence Score:"
     },
     "Hindi": {
         "dashboard": "ब्रुसेलोसिस भविष्यवाणी डैशबोर्ड",
@@ -114,13 +117,13 @@ translations = {
         "retained": "जेर रुकना/मृत प्रसव",
         "disposal": "भ्रूण का निपटान",
         "infertility": "बांझपन",
-        "run_prediction": "🔬 AI भविष्यवाणी चलाएं",
+        "run_prediction": "AI भविष्यवाणी चलाएं",
         "prediction_results": "भविष्यवाणी परिणाम",
         "probability_dist": "संभावना वितरण",
         "run_prediction_msg": "परिणाम देखने के लिए भविष्यवाणी चलाएं",
         "vet_assistant": "पशु चिकित्सा AI सहायक",
         "vet_subtitle": "ब्रुसेलोसिस, दूध सुरक्षा और पशु स्वास्थ्य पर तुरंत विशेषज्ञ सलाह प्राप्त करें",
-        "start_consultation": "🩺 परामर्श शुरू करें",
+        "start_consultation": "परामर्श शुरू करें",
         "quick_actions": "त्वरित क्रियाएं",
         "export_report": "रिपोर्ट निर्यात करें",
         "schedule_test": "परीक्षण निर्धारित करें",
@@ -134,7 +137,10 @@ translations = {
         "logout": "लॉगआउट",
         "ai_insights": "AI-संचालित अंतर्दृष्टि",
         "dashboard_menu": "डैशबोर्ड",
-        "resources": "संसाधन"
+        "resources": "संसाधन",
+        "save_template": "टेम्पलेट सहेजें",
+        "predicted_status": "अनुमानित स्थिति:",
+        "confidence": "भरोसा:"
     }
 }
 
@@ -264,64 +270,101 @@ def load_all_artifacts():
 
 best_model, le_dict, le_target, scaler, feature_names = load_all_artifacts()
 
-# --- CUSTOM CSS ---
+# --- ENHANCED CUSTOM CSS ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
     
     * {
-        font-family: 'Inter', sans-serif;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
     
+    /* Main App Background */
     .stApp {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        background: #f5f7fa;
     }
     
-    /* Sidebar Styling */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #1e3c72 0%, #2a5298 100%);
-        padding: 0;
-    }
-    
-    [data-testid="stSidebar"] .css-1d391kg {
+    /* Remove default padding */
+    .main .block-container {
         padding-top: 2rem;
+        padding-bottom: 2rem;
+        max-width: 100%;
     }
     
-    /* Dashboard Header */
+    /* Sidebar Styling - Modern Dark Blue */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 50%, #2563eb 100%);
+        box-shadow: 4px 0 12px rgba(0,0,0,0.1);
+    }
+    
+    [data-testid="stSidebar"] > div:first-child {
+        background: transparent;
+    }
+    
+    /* Sidebar Text */
+    [data-testid="stSidebar"] .stMarkdown,
+    [data-testid="stSidebar"] label {
+        color: white !important;
+    }
+    
+    /* Sidebar Buttons */
+    [data-testid="stSidebar"] .stButton > button {
+        width: 100%;
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin: 0.25rem 0;
+        transition: all 0.2s ease;
+        text-align: left;
+        font-weight: 500;
+    }
+    
+    [data-testid="stSidebar"] .stButton > button:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.3);
+        transform: translateX(4px);
+    }
+    
+    /* Dashboard Header Card */
     .dashboard-header {
         background: white;
-        padding: 1.5rem 2rem;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        padding: 2rem;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
         margin-bottom: 2rem;
+        border-left: 6px solid #10b981;
     }
     
     .dashboard-title {
-        font-size: 2rem;
+        font-size: 2.25rem;
         font-weight: 700;
-        color: #1e3c72;
-        margin: 0;
+        color: #1e293b;
+        margin: 0 0 0.5rem 0;
+        letter-spacing: -0.5px;
     }
     
     .dashboard-subtitle {
-        font-size: 0.95rem;
-        color: #6b7280;
-        margin: 0.25rem 0 0 0;
+        font-size: 1rem;
+        color: #64748b;
+        margin: 0;
     }
     
     /* Metric Cards */
     .metric-card {
         background: white;
-        padding: 1.5rem;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        border-left: 4px solid;
-        transition: transform 0.2s, box-shadow 0.2s;
+        padding: 1.75rem;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        border-left: 5px solid;
+        transition: all 0.3s ease;
+        height: 100%;
     }
     
     .metric-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transform: translateY(-5px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
     }
     
     .metric-card.blue { border-left-color: #3b82f6; }
@@ -329,241 +372,432 @@ st.markdown("""
     .metric-card.green { border-left-color: #10b981; }
     .metric-card.purple { border-left-color: #8b5cf6; }
     
-    .metric-value {
+    .metric-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+    }
+    
+    .metric-icon {
         font-size: 2.5rem;
-        font-weight: 700;
-        margin: 0.5rem 0;
+        opacity: 0.8;
+    }
+    
+    .metric-value {
+        font-size: 2.75rem;
+        font-weight: 800;
+        color: #1e293b;
+        line-height: 1;
+        margin: 0.75rem 0;
     }
     
     .metric-label {
         font-size: 0.875rem;
-        color: #6b7280;
+        color: #64748b;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
     }
     
     .metric-change {
-        font-size: 0.75rem;
-        margin-top: 0.5rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
     }
     
-    .metric-icon {
-        font-size: 1.5rem;
-        opacity: 0.7;
+    .metric-change.positive {
+        color: #059669;
+        background: #d1fae5;
     }
     
-    /* Input Section */
-    .input-section {
+    .metric-change.negative {
+        color: #dc2626;
+        background: #fee2e2;
+    }
+    
+    /* Section Cards */
+    .section-card {
         background: white;
         padding: 2rem;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
         margin-bottom: 1.5rem;
     }
     
     .section-header {
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: #1e3c72;
-        margin-bottom: 0.5rem;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin: 0 0 0.5rem 0;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
     }
     
     .section-subtitle {
-        font-size: 0.875rem;
-        color: #6b7280;
-        margin-bottom: 1.5rem;
+        font-size: 0.95rem;
+        color: #64748b;
+        margin: 0 0 1.5rem 0;
     }
     
-    /* Results Card */
-    .results-card {
-        background: white;
-        padding: 2rem;
+    /* Input Fields */
+    .stTextInput > div > div > input,
+    .stNumberInput > div > div > input,
+    .stSelectbox > div > div > select {
+        border-radius: 10px;
+        border: 2px solid #e2e8f0;
+        padding: 0.75rem 1rem;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+    }
+    
+    .stTextInput > div > div > input:focus,
+    .stNumberInput > div > div > input:focus,
+    .stSelectbox > div > div > select:focus {
+        border-color: #10b981;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    }
+    
+    /* Labels */
+    .stTextInput label,
+    .stNumberInput label,
+    .stSelectbox label {
+        font-weight: 600;
+        color: #334155;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Primary Button */
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        border: none;
         border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        text-align: center;
-        min-height: 300px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        padding: 0.875rem 2rem;
+        font-weight: 700;
+        font-size: 1.05rem;
+        box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+        transition: all 0.3s ease;
+        width: 100%;
     }
     
-    .empty-state {
-        color: #9ca3af;
-        font-size: 1rem;
+    .stButton > button[kind="primary"]:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
     }
     
-    .empty-state-icon {
-        font-size: 3rem;
-        margin-bottom: 1rem;
-        opacity: 0.5;
+    /* Secondary Buttons */
+    .stButton > button {
+        border-radius: 10px;
+        padding: 0.65rem 1.25rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        border: 2px solid #e2e8f0;
     }
     
-    /* Prediction Result */
+    .stButton > button:hover {
+        border-color: #10b981;
+        background: #f0fdf4;
+        color: #059669;
+    }
+    
+    /* Prediction Result Card */
     .prediction-result {
-        padding: 2rem;
-        border-radius: 12px;
-        margin: 1rem 0;
+        padding: 2.5rem;
+        border-radius: 16px;
+        margin: 1.5rem 0;
+        border: 3px solid;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
     }
     
     .prediction-result.positive {
         background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
-        border: 2px solid #ef4444;
+        border-color: #ef4444;
     }
     
     .prediction-result.negative {
         background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-        border: 2px solid #10b981;
+        border-color: #10b981;
     }
     
     .result-status {
-        font-size: 2rem;
-        font-weight: 700;
+        font-size: 2.5rem;
+        font-weight: 800;
         margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
     }
     
     .result-confidence {
-        font-size: 1.25rem;
-        opacity: 0.8;
+        font-size: 1.35rem;
+        font-weight: 600;
+        opacity: 0.85;
     }
     
     /* AI Assistant Card */
     .ai-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem;
-        border-radius: 12px;
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        padding: 2.25rem;
+        border-radius: 16px;
         color: white;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
+        margin-bottom: 1.5rem;
+    }
+    
+    .ai-card-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
     }
     
     .ai-card-title {
         font-size: 1.5rem;
-        font-weight: 600;
-        margin-bottom: 0.5rem;
+        font-weight: 700;
+        margin-bottom: 0.75rem;
     }
     
     .ai-card-subtitle {
-        font-size: 0.9rem;
-        opacity: 0.9;
+        font-size: 1rem;
+        opacity: 0.95;
+        line-height: 1.6;
         margin-bottom: 1.5rem;
+    }
+    
+    .ai-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(255, 255, 255, 0.2);
+        padding: 0.375rem 0.875rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
     }
     
     /* Quick Actions */
     .quick-action {
         background: white;
-        padding: 1rem;
-        border-radius: 8px;
-        border: 1px solid #e5e7eb;
-        margin: 0.5rem 0;
+        padding: 1.25rem;
+        border-radius: 12px;
+        border: 2px solid #f1f5f9;
+        margin: 0.75rem 0;
         cursor: pointer;
-        transition: all 0.2s;
+        transition: all 0.25s ease;
         display: flex;
         align-items: center;
-        gap: 0.75rem;
+        gap: 1rem;
     }
     
     .quick-action:hover {
-        background: #f9fafb;
-        border-color: #3b82f6;
-        transform: translateX(4px);
-    }
-    
-    /* Buttons */
-    .stButton>button {
-        width: 100%;
-        border-radius: 8px;
-        padding: 0.75rem 1.5rem;
-        font-weight: 600;
-        border: none;
-        transition: all 0.2s;
-    }
-    
-    .stButton>button[kind="primary"] {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        color: white;
-    }
-    
-    .stButton>button[kind="primary"]:hover {
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-        transform: translateY(-2px);
-    }
-    
-    /* Sidebar Menu */
-    .sidebar-menu-item {
-        padding: 0.75rem 1rem;
-        margin: 0.25rem 0;
-        border-radius: 8px;
-        color: white;
-        cursor: pointer;
-        transition: all 0.2s;
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-    }
-    
-    .sidebar-menu-item:hover {
-        background: rgba(255, 255, 255, 0.1);
-    }
-    
-    .sidebar-menu-item.active {
-        background: rgba(255, 255, 255, 0.2);
-    }
-    
-    .sidebar-section-title {
-        color: rgba(255, 255, 255, 0.6);
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        padding: 1rem 1rem 0.5rem 1rem;
-        font-weight: 600;
-    }
-    
-    /* Chat Interface */
-    .chat-container {
-        background: white;
-        border-radius: 12px;
-        padding: 1.5rem;
-        max-height: 400px;
-        overflow-y: auto;
-        margin: 1rem 0;
+        background: #f8fafc;
+        border-color: #10b981;
+        transform: translateX(6px);
         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
     
+    .quick-action-icon {
+        font-size: 1.75rem;
+        width: 50px;
+        height: 50px;
+        background: #f0fdf4;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .quick-action-label {
+        flex: 1;
+        font-weight: 600;
+        color: #334155;
+        font-size: 0.95rem;
+    }
+    
+    /* Chat Container */
+    .chat-container {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        max-height: 450px;
+        overflow-y: auto;
+        margin: 1.5rem 0;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        border: 2px solid #f1f5f9;
+    }
+    
     .chat-message {
-        padding: 1rem;
-        border-radius: 8px;
-        margin: 0.5rem 0;
+        padding: 1rem 1.25rem;
+        border-radius: 12px;
+        margin: 0.75rem 0;
+        animation: slideIn 0.3s ease;
+    }
+    
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
     
     .chat-message.user {
-        background: #eff6ff;
-        margin-left: 2rem;
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        margin-left: 2.5rem;
+        border: 1px solid #bfdbfe;
     }
     
     .chat-message.assistant {
-        background: #f9fafb;
-        margin-right: 2rem;
+        background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+        margin-right: 2.5rem;
+        border: 1px solid #e5e7eb;
     }
+    
+    .chat-message strong {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-size: 0.85rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: #94a3b8;
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        margin-bottom: 1.5rem;
+        opacity: 0.4;
+    }
+    
+    .empty-state-text {
+        font-size: 1.1rem;
+        font-weight: 500;
+    }
+    
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0.5rem;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        height: 3.5rem;
+        background: white;
+        border-radius: 12px;
+        padding: 0 2rem;
+        font-weight: 600;
+        border: 2px solid #f1f5f9;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        border-color: #10b981;
+    }
+    
+    /* Login Container */
+    .login-container {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+        overflow: hidden;
+        max-width: 480px;
+        margin: 0 auto;
+    }
+    
+    .login-header {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        padding: 3rem 2rem;
+        text-align: center;
+        color: white;
+    }
+    
+    .login-header h1 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin: 0;
+    }
+    
+    .login-header p {
+        font-size: 1rem;
+        opacity: 0.95;
+        margin: 0.5rem 0 0 0;
+    }
+    
+    /* Info Cards */
+    .info-card {
+        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+        border: 2px solid #86efac;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+    }
+    
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 10px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 10px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
+    
+    /* Hide Streamlit Branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
-# --- LANGUAGE SELECTOR ---
-selected_lang = st.sidebar.selectbox("🌐 Language / भाषा", ["English", "Hindi"], label_visibility="collapsed")
-t = translations[selected_lang]
-
 # --- LOGIN/REGISTER ---
 if not st.session_state['logged_in']:
-    col1, col2, col3 = st.columns([1, 2, 1])
+    # Language selector at top
+    col_lang1, col_lang2, col_lang3 = st.columns([2, 1, 2])
+    with col_lang2:
+        selected_lang = st.selectbox("🌐", ["English", "Hindi"], label_visibility="collapsed")
+    
+    t = translations[selected_lang]
+    
+    col1, col2, col3 = st.columns([1, 2.5, 1])
     with col2:
-        st.markdown(f"""
-        <div style="text-align: center; padding: 3rem 0;">
-            <h1 style="font-size: 3rem; font-weight: 700; color: #1e3c72; margin-bottom: 0.5rem;">
-                🔬 BrucellosisAI
-            </h1>
-            <p style="font-size: 1.1rem; color: #6b7280;">
-                Advanced Disease Prediction System
-            </p>
+        st.markdown("""
+        <div class="login-container">
+            <div class="login-header">
+                <div style="font-size: 4rem; margin-bottom: 1rem;">🔬</div>
+                <h1>BrucellosisAI</h1>
+                <p>Advanced Disease Prediction System</p>
+            </div>
         </div>
         """, unsafe_allow_html=True)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
         
         tab1, tab2 = st.tabs(["🔐 Login", "📝 Register"])
         
@@ -652,55 +886,55 @@ if not st.session_state['logged_in']:
 
 else:
     # --- SIDEBAR MENU ---
+    selected_lang = st.sidebar.selectbox("🌐 Language", ["English", "Hindi"], label_visibility="collapsed")
+    t = translations[selected_lang]
+    
     with st.sidebar:
         st.markdown("""
-        <div style="text-align: center; padding: 1.5rem 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
-            <h2 style="color: white; margin: 0; font-size: 1.5rem;">🔬 BrucellosisAI</h2>
-            <p style="color: rgba(255,255,255,0.7); margin: 0.5rem 0 0 0; font-size: 0.85rem;">Prediction System</p>
+        <div style="text-align: center; padding: 1.5rem 0; border-bottom: 2px solid rgba(255,255,255,0.15); margin-bottom: 1.5rem;">
+            <div style="font-size: 3rem; margin-bottom: 0.5rem;">🔬</div>
+            <h2 style="color: white; margin: 0; font-size: 1.5rem; font-weight: 700;">BrucellosisAI</h2>
+            <p style="color: rgba(255,255,255,0.8); margin: 0.5rem 0 0 0; font-size: 0.9rem;">Prediction System</p>
         </div>
         """, unsafe_allow_html=True)
         
-        st.markdown('<div class="sidebar-section-title">MAIN MENU</div>', unsafe_allow_html=True)
+        st.markdown('<div style="color: rgba(255,255,255,0.6); font-size: 0.75rem; font-weight: 700; letter-spacing: 1px; padding: 0 1rem; margin-bottom: 0.75rem;">MAIN MENU</div>', unsafe_allow_html=True)
         
-        menu_items = [
-            ("📊", t["dashboard_menu"], "dashboard"),
-            ("➕", t["new_prediction"], "new_prediction"),
-            ("📜", t["history"], "history"),
-            ("📈", t["analytics"], "analytics"),
-        ]
-        
-        if 'current_page' not in st.session_state:
+        if st.button(f"📊 {t['dashboard_menu']}", use_container_width=True):
             st.session_state['current_page'] = 'dashboard'
+        if st.button(f"➕ {t['new_prediction']}", use_container_width=True):
+            st.session_state['current_page'] = 'new_prediction'
+        if st.button(f"📜 {t['history']}", use_container_width=True):
+            st.session_state['current_page'] = 'history'
+        if st.button(f"📈 {t['analytics']}", use_container_width=True):
+            st.session_state['current_page'] = 'analytics'
         
-        for icon, label, key in menu_items:
-            active_class = "active" if st.session_state['current_page'] == key else ""
-            if st.button(f"{icon} {label}", key=f"menu_{key}", use_container_width=True):
-                st.session_state['current_page'] = key
-                st.rerun()
-        
-        st.markdown(f'<div class="sidebar-section-title">{t["resources"]}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="color: rgba(255,255,255,0.6); font-size: 0.75rem; font-weight: 700; letter-spacing: 1px; padding: 0 1rem; margin: 1.5rem 0 0.75rem 0;">{t["resources"]}</div>', unsafe_allow_html=True)
         
         if ai_enabled:
-            if st.button(f"🤖 {t['ai_assistant']}", key="menu_ai", use_container_width=True):
-                st.session_state['current_page'] = 'ai_assistant'
-                st.rerun()
+            if st.button(f"🤖 {t['ai_assistant']}", use_container_width=True):
+                st.session_state['show_chatbot'] = not st.session_state['show_chatbot']
         
-        if st.button(f"📋 {t['guidelines']}", key="menu_guidelines", use_container_width=True):
-            st.session_state['current_page'] = 'guidelines'
-            st.rerun()
+        if st.button(f"📋 {t['guidelines']}", use_container_width=True):
+            pass
+        if st.button(f"⚙️ {t['settings']}", use_container_width=True):
+            pass
         
-        if st.button(f"⚙️ {t['settings']}", key="menu_settings", use_container_width=True):
-            st.session_state['current_page'] = 'settings'
-            st.rerun()
+        st.markdown("<br>" * 4, unsafe_allow_html=True)
         
-        st.markdown("<br>" * 3, unsafe_allow_html=True)
-        
-        st.markdown(f"""
-        <div style="padding: 1rem; background: rgba(255,255,255,0.1); border-radius: 8px; margin-top: auto;">
-            <p style="color: white; margin: 0; font-size: 0.85rem;">👤 Dr. User</p>
-            <p style="color: rgba(255,255,255,0.7); margin: 0.25rem 0 0 0; font-size: 0.75rem;">Veterinarian</p>
+        st.markdown("""
+        <div style="padding: 1rem; background: rgba(255,255,255,0.15); border-radius: 12px; margin-top: auto; border: 1px solid rgba(255,255,255,0.2);">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">👤</div>
+                <div>
+                    <p style="color: white; margin: 0; font-size: 0.9rem; font-weight: 600;">Dr. User</p>
+                    <p style="color: rgba(255,255,255,0.7); margin: 0; font-size: 0.75rem;">Veterinarian</p>
+                </div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
         
         if st.button(f"🚪 {t['logout']}", use_container_width=True, type="primary"):
             st.session_state.update(logged_in=False, username=None)
@@ -721,40 +955,56 @@ else:
     with col1:
         st.markdown(f"""
         <div class="metric-card blue">
-            <div class="metric-icon">📊</div>
-            <div class="metric-value">{st.session_state['prediction_count']:,}</div>
-            <div class="metric-label">{t["total_predictions"]}</div>
-            <div class="metric-change" style="color: #10b981;">↑ 45.2% vs last month</div>
+            <div class="metric-header">
+                <div>
+                    <div class="metric-label">{t["total_predictions"]}</div>
+                    <div class="metric-value">{st.session_state['prediction_count']:,}</div>
+                </div>
+                <div class="metric-icon">📊</div>
+            </div>
+            <div class="metric-change positive">↑ +12.5% vs last month</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col2:
         st.markdown(f"""
         <div class="metric-card red">
-            <div class="metric-icon">⚠️</div>
-            <div class="metric-value">{st.session_state['positive_count']}</div>
-            <div class="metric-label">{t["positive_cases"]}</div>
-            <div class="metric-change" style="color: #ef4444;">↑ 8.2% vs last month</div>
+            <div class="metric-header">
+                <div>
+                    <div class="metric-label">{t["positive_cases"]}</div>
+                    <div class="metric-value">{st.session_state['positive_count']}</div>
+                </div>
+                <div class="metric-icon">⚠️</div>
+            </div>
+            <div class="metric-change negative">↑ +3.2% vs last month</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col3:
         st.markdown(f"""
         <div class="metric-card green">
-            <div class="metric-icon">✓</div>
-            <div class="metric-value">94.3%</div>
-            <div class="metric-label">{t["accuracy_rate"]}</div>
-            <div class="metric-change" style="color: #10b981;">↑ 0.8% vs last month</div>
+            <div class="metric-header">
+                <div>
+                    <div class="metric-label">{t["accuracy_rate"]}</div>
+                    <div class="metric-value">94.3%</div>
+                </div>
+                <div class="metric-icon">✅</div>
+            </div>
+            <div class="metric-change positive">↑ +1.8% vs last month</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col4:
         st.markdown(f"""
         <div class="metric-card purple">
-            <div class="metric-icon">🤖</div>
-            <div class="metric-value">{st.session_state['ai_consultation_count']}</div>
-            <div class="metric-label">{t["ai_consultations"]}</div>
-            <div class="metric-change" style="color: #8b5cf6;">↑ 28.7% vs last month</div>
+            <div class="metric-header">
+                <div>
+                    <div class="metric-label">{t["ai_consultations"]}</div>
+                    <div class="metric-value">{st.session_state['ai_consultation_count']}</div>
+                </div>
+                <div class="metric-icon">🤖</div>
+            </div>
+            <div class="metric-change positive">↑ +24.1% vs last month</div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -764,32 +1014,34 @@ else:
     with col_left:
         # Input Section
         st.markdown(f"""
-        <div class="input-section">
-            <h2 class="section-header">{t["input_header"]}</h2>
+        <div class="section-card">
+            <div class="section-header">📝 {t["input_header"]}</div>
             <p class="section-subtitle">{t["input_subtitle"]}</p>
         </div>
         """, unsafe_allow_html=True)
         
-        col_a, col_b = st.columns(2)
-        
-        with col_a:
-            age = st.number_input(t["age"], min_value=0, max_value=20, value=5, step=1)
-            breed = st.selectbox(t["breed"], options=sorted(list(le_dict.get('Breed species').classes_)) if le_dict else ["Loading..."])
-            sex = st.selectbox(t["sex"], options=sorted(list(le_dict.get('Sex').classes_)) if le_dict else ["Loading..."])
-            calvings = st.number_input(t["calvings"], min_value=0, max_value=15, value=1, step=1)
-            abortion = st.selectbox(t["abortion"], options=sorted(list(le_dict.get('Abortion History (Yes No)').classes_)) if le_dict else ["Loading..."])
-            infertility = st.selectbox(t["infertility"], options=sorted(list(le_dict.get('Infertility Repeat breeder(Yes No)').classes_)) if le_dict else ["Loading..."])
-        
-        with col_b:
-            vaccine = st.selectbox(t["vaccination"], options=sorted(list(le_dict.get('Brucella vaccination status (Yes No)').classes_)) if le_dict else ["Loading..."])
-            sample = st.selectbox(t["sample"], options=sorted(list(le_dict.get('Sample Type(Serum Milk)').classes_)) if le_dict else ["Loading..."])
-            test = st.selectbox(t["test"], options=sorted(list(le_dict.get('Test Type (RBPT ELISA MRT)').classes_)) if le_dict else ["Loading..."])
-            retained = st.selectbox(t["retained"], options=sorted(list(le_dict.get('Retained Placenta Stillbirth(Yes No No Data)').classes_)) if le_dict else ["Loading..."])
-            disposal = st.selectbox(t["disposal"], options=sorted(list(le_dict.get('Proper Disposal of Aborted Fetuses (Yes No)').classes_)) if le_dict else ["Loading..."])
+        # Form inputs in a card-like container
+        with st.container():
+            col_a, col_b = st.columns(2)
+            
+            with col_a:
+                age = st.number_input(t["age"], min_value=0, max_value=20, value=5, step=1, key="age_input")
+                breed = st.selectbox(t["breed"], options=sorted(list(le_dict.get('Breed species').classes_)) if le_dict else ["Loading..."], key="breed_input")
+                sex = st.selectbox(t["sex"], options=sorted(list(le_dict.get('Sex').classes_)) if le_dict else ["Loading..."], key="sex_input")
+                calvings = st.number_input(t["calvings"], min_value=0, max_value=15, value=1, step=1, key="calvings_input")
+                abortion = st.selectbox(t["abortion"], options=sorted(list(le_dict.get('Abortion History (Yes No)').classes_)) if le_dict else ["Loading..."], key="abortion_input")
+                infertility = st.selectbox(t["infertility"], options=sorted(list(le_dict.get('Infertility Repeat breeder(Yes No)').classes_)) if le_dict else ["Loading..."], key="infertility_input")
+            
+            with col_b:
+                vaccine = st.selectbox(t["vaccination"], options=sorted(list(le_dict.get('Brucella vaccination status (Yes No)').classes_)) if le_dict else ["Loading..."], key="vaccine_input")
+                sample = st.selectbox(t["sample"], options=sorted(list(le_dict.get('Sample Type(Serum Milk)').classes_)) if le_dict else ["Loading..."], key="sample_input")
+                test = st.selectbox(t["test"], options=sorted(list(le_dict.get('Test Type (RBPT ELISA MRT)').classes_)) if le_dict else ["Loading..."], key="test_input")
+                retained = st.selectbox(t["retained"], options=sorted(list(le_dict.get('Retained Placenta Stillbirth(Yes No No Data)').classes_)) if le_dict else ["Loading..."], key="retained_input")
+                disposal = st.selectbox(t["disposal"], options=sorted(list(le_dict.get('Proper Disposal of Aborted Fetuses (Yes No)').classes_)) if le_dict else ["Loading..."], key="disposal_input")
         
         st.markdown("<br>", unsafe_allow_html=True)
         
-        if st.button(t["run_prediction"], use_container_width=True, type="primary"):
+        if st.button(f"🔬 {t['run_prediction']}", use_container_width=True, type="primary"):
             input_data = {
                 'Age': age, 'Breed species': breed, 'Sex': sex, 'Calvings': calvings,
                 'Abortion History (Yes No)': abortion, 'Infertility Repeat breeder(Yes No)': infertility,
@@ -832,8 +1084,8 @@ else:
         # Results Section
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown(f"""
-        <div class="input-section">
-            <h2 class="section-header">{t["prediction_results"]}</h2>
+        <div class="section-card">
+            <div class="section-header">📊 {t["prediction_results"]}</div>
         </div>
         """, unsafe_allow_html=True)
         
@@ -841,46 +1093,55 @@ else:
             pred = st.session_state['last_prediction']
             result_type = "positive" if "Positive" in pred['result'] else "negative"
             
+            status_emoji = "🔴" if result_type == "positive" else "✅"
+            status_text = "POSITIVE" if result_type == "positive" else "NEGATIVE"
+            
             st.markdown(f"""
             <div class="prediction-result {result_type}">
-                <div class="result-status">
-                    {"🔴 POSITIVE" if result_type == "positive" else "✅ NEGATIVE"}
-                </div>
-                <div class="result-confidence">
-                    Confidence: {pred['confidence']:.1%}
-                </div>
+                <div class="result-status">{status_emoji} {status_text}</div>
+                <div class="result-confidence">{t['confidence']} {pred['confidence']:.1%}</div>
             </div>
             """, unsafe_allow_html=True)
             
             # Probability Distribution Chart
-            st.markdown(f"<br><h3 class='section-header'>{t['probability_dist']}</h3>", unsafe_allow_html=True)
+            st.markdown(f"<br><h3 class='section-header'>📈 {t['probability_dist']}</h3>", unsafe_allow_html=True)
             
             prob_df = pd.DataFrame({
                 'Class': pred['classes'],
-                'Probability': pred['probabilities']
+                'Probability': pred['probabilities'] * 100
             })
             
-            fig = px.bar(
-                prob_df,
-                x='Class',
-                y='Probability',
-                color='Probability',
-                color_continuous_scale=['#10b981', '#fbbf24', '#ef4444'],
-                labels={'Probability': 'Probability', 'Class': ''},
-                title='Last 7 days'
-            )
+            fig = go.Figure(data=[
+                go.Bar(
+                    x=prob_df['Class'],
+                    y=prob_df['Probability'],
+                    marker=dict(
+                        color=prob_df['Probability'],
+                        colorscale=[[0, '#10b981'], [0.5, '#fbbf24'], [1, '#ef4444']],
+                        line=dict(color='rgba(0,0,0,0.1)', width=2)
+                    ),
+                    text=[f"{val:.1f}%" for val in prob_df['Probability']],
+                    textposition='outside'
+                )
+            ])
+            
             fig.update_layout(
-                height=300,
-                margin=dict(l=0, r=0, t=40, b=0),
-                showlegend=False,
+                height=350,
+                margin=dict(l=20, r=20, t=40, b=20),
+                xaxis_title="",
+                yaxis_title="Probability (%)",
                 plot_bgcolor='rgba(0,0,0,0)',
-                paper_bgcolor='rgba(0,0,0,0)'
+                paper_bgcolor='rgba(0,0,0,0)',
+                font=dict(family="Inter, sans-serif", size=12),
+                showlegend=False,
+                yaxis=dict(gridcolor='rgba(0,0,0,0.05)')
             )
+            
             st.plotly_chart(fig, use_container_width=True)
             
             # AI Insights
             if ai_enabled:
-                st.markdown(f"<br><h3 class='section-header'>{t['ai_insights']}</h3>", unsafe_allow_html=True)
+                st.markdown(f"<br><h3 class='section-header'>💡 {t['ai_insights']}</h3>", unsafe_allow_html=True)
                 with st.spinner("🤖 Generating AI recommendations..."):
                     try:
                         prompt = f"""You are a senior veterinary expert. Analyzing animal data: {json.dumps(pred['input_data'])}. 
@@ -889,15 +1150,15 @@ else:
                         Provide 3-4 clear, actionable steps for the farmer in {'Hindi' if selected_lang == 'Hindi' else 'English'}."""
                         
                         response = gemini_model.generate_content(prompt)
-                        st.info(response.text)
+                        st.markdown(f'<div class="info-card">{response.text}</div>', unsafe_allow_html=True)
                     except Exception as e:
                         st.error(f"AI Generation Error: {e}")
         else:
             st.markdown(f"""
-            <div class="results-card">
+            <div class="section-card">
                 <div class="empty-state">
                     <div class="empty-state-icon">📊</div>
-                    <div>{t["run_prediction_msg"]}</div>
+                    <div class="empty-state-text">{t["run_prediction_msg"]}</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -907,19 +1168,32 @@ else:
         if ai_enabled:
             st.markdown(f"""
             <div class="ai-card">
-                <div class="ai-card-title">🤖 {t["vet_assistant"]}</div>
+                <div class="ai-card-icon">🤖</div>
+                <div class="ai-badge">
+                    ✨ AI Powered
+                </div>
+                <div class="ai-card-title">{t["vet_assistant"]}</div>
                 <div class="ai-card-subtitle">{t["vet_subtitle"]}</div>
             </div>
             """, unsafe_allow_html=True)
             
-            if st.button(t["start_consultation"], use_container_width=True, key="start_consult"):
+            if st.button(f"💬 {t['start_consultation']}", use_container_width=True, key="start_consult"):
                 st.session_state['show_chatbot'] = not st.session_state['show_chatbot']
             
             if st.session_state['show_chatbot']:
                 st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-                for msg in st.session_state['chat_history']:
-                    msg_class = "user" if msg['role'] == 'user' else "assistant"
-                    st.markdown(f'<div class="chat-message {msg_class}">{msg["content"]}</div>', unsafe_allow_html=True)
+                if len(st.session_state['chat_history']) == 0:
+                    st.markdown("""
+                    <div class="empty-state">
+                        <div class="empty-state-icon">💬</div>
+                        <div class="empty-state-text">Start a conversation</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    for msg in st.session_state['chat_history']:
+                        msg_class = "user" if msg['role'] == 'user' else "assistant"
+                        role_label = "You" if msg['role'] == 'user' else "AI Assistant"
+                        st.markdown(f'<div class="chat-message {msg_class}"><strong>{role_label}</strong>{msg["content"]}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
                 
                 user_question = st.text_input("💬 Your question...", key="chat_input")
@@ -951,7 +1225,7 @@ else:
                         st.rerun()
         
         # Quick Actions
-        st.markdown(f"<br><h3 class='section-header'>{t['quick_actions']}</h3>", unsafe_allow_html=True)
+        st.markdown(f"<br><h3 class='section-header'>⚡ {t['quick_actions']}</h3>", unsafe_allow_html=True)
         
         quick_actions = [
             ("📄", t["export_report"]),
@@ -962,8 +1236,17 @@ else:
         for icon, label in quick_actions:
             st.markdown(f"""
             <div class="quick-action">
-                <span style="font-size: 1.5rem;">{icon}</span>
-                <span style="flex: 1;">{label}</span>
-                <span style="color: #9ca3af;">›</span>
+                <div class="quick-action-icon">{icon}</div>
+                <div class="quick-action-label">{label}</div>
+                <span style="color: #cbd5e1; font-size: 1.25rem;">›</span>
             </div>
             """, unsafe_allow_html=True)
+    
+    # Footer
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("""
+    <div style="text-align: center; padding: 2rem; color: #64748b; font-size: 0.9rem;">
+        <p style="margin: 0;">Developed for Veterinary Health Solutions</p>
+        <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem;">© 2024 BrucellosisAI. All rights reserved.</p>
+    </div>
+    """, unsafe_allow_html=True)

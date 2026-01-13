@@ -167,6 +167,20 @@ if 'otp_timestamp' not in st.session_state:
     st.session_state['otp_timestamp'] = None
 if 'pending_user_data' not in st.session_state:
     st.session_state['pending_user_data'] = None
+if 'form_data' not in st.session_state:
+    st.session_state['form_data'] = {
+        'age': 5,
+        'breed': None,
+        'sex': None,
+        'calvings': 1,
+        'abortion': None,
+        'infertility': None,
+        'vaccine': None,
+        'sample': None,
+        'test': None,
+        'retained': None,
+        'disposal': None
+    }
 
 # --- MODEL LOADING ---
 MODEL_ARTIFACTS_DIR = 'model_artifacts/'
@@ -912,8 +926,9 @@ else:
         st.markdown(f'<div style="color: rgba(255,255,255,0.6); font-size: 0.75rem; font-weight: 700; letter-spacing: 1px; padding: 0 1rem; margin: 1.5rem 0 0.75rem 0;">{t["resources"]}</div>', unsafe_allow_html=True)
         
         if ai_enabled:
-            if st.button(f"🤖 {t['ai_assistant']}", use_container_width=True):
+            if st.button(f"🤖 {t['ai_assistant']}", use_container_width=True, key="sidebar_ai_toggle"):
                 st.session_state['show_chatbot'] = not st.session_state['show_chatbot']
+                st.rerun()
         
         if st.button(f"📋 {t['guidelines']}", use_container_width=True):
             pass
@@ -1024,24 +1039,61 @@ else:
         with st.container():
             col_a, col_b = st.columns(2)
             
+            # Initialize form data with defaults from session state
+            if st.session_state['form_data']['breed'] is None and le_dict:
+                st.session_state['form_data']['breed'] = sorted(list(le_dict.get('Breed species').classes_))[0]
+            if st.session_state['form_data']['sex'] is None and le_dict:
+                st.session_state['form_data']['sex'] = sorted(list(le_dict.get('Sex').classes_))[0]
+            if st.session_state['form_data']['abortion'] is None and le_dict:
+                st.session_state['form_data']['abortion'] = sorted(list(le_dict.get('Abortion History (Yes No)').classes_))[0]
+            if st.session_state['form_data']['infertility'] is None and le_dict:
+                st.session_state['form_data']['infertility'] = sorted(list(le_dict.get('Infertility Repeat breeder(Yes No)').classes_))[0]
+            if st.session_state['form_data']['vaccine'] is None and le_dict:
+                st.session_state['form_data']['vaccine'] = sorted(list(le_dict.get('Brucella vaccination status (Yes No)').classes_))[0]
+            if st.session_state['form_data']['sample'] is None and le_dict:
+                st.session_state['form_data']['sample'] = sorted(list(le_dict.get('Sample Type(Serum Milk)').classes_))[0]
+            if st.session_state['form_data']['test'] is None and le_dict:
+                st.session_state['form_data']['test'] = sorted(list(le_dict.get('Test Type (RBPT ELISA MRT)').classes_))[0]
+            if st.session_state['form_data']['retained'] is None and le_dict:
+                st.session_state['form_data']['retained'] = sorted(list(le_dict.get('Retained Placenta Stillbirth(Yes No No Data)').classes_))[0]
+            if st.session_state['form_data']['disposal'] is None and le_dict:
+                st.session_state['form_data']['disposal'] = sorted(list(le_dict.get('Proper Disposal of Aborted Fetuses (Yes No)').classes_))[0]
+            
             with col_a:
-                age = st.number_input(t["age"], min_value=0, max_value=20, value=5, step=1, key="age_input")
-                breed = st.selectbox(t["breed"], options=sorted(list(le_dict.get('Breed species').classes_)) if le_dict else ["Loading..."], key="breed_input")
-                sex = st.selectbox(t["sex"], options=sorted(list(le_dict.get('Sex').classes_)) if le_dict else ["Loading..."], key="sex_input")
-                calvings = st.number_input(t["calvings"], min_value=0, max_value=15, value=1, step=1, key="calvings_input")
-                abortion = st.selectbox(t["abortion"], options=sorted(list(le_dict.get('Abortion History (Yes No)').classes_)) if le_dict else ["Loading..."], key="abortion_input")
-                infertility = st.selectbox(t["infertility"], options=sorted(list(le_dict.get('Infertility Repeat breeder(Yes No)').classes_)) if le_dict else ["Loading..."], key="infertility_input")
+                age = st.number_input(t["age"], min_value=0, max_value=20, value=st.session_state['form_data']['age'], step=1, key="age_input")
+                breed = st.selectbox(t["breed"], options=sorted(list(le_dict.get('Breed species').classes_)) if le_dict else ["Loading..."], index=sorted(list(le_dict.get('Breed species').classes_)).index(st.session_state['form_data']['breed']) if le_dict and st.session_state['form_data']['breed'] else 0, key="breed_input")
+                sex = st.selectbox(t["sex"], options=sorted(list(le_dict.get('Sex').classes_)) if le_dict else ["Loading..."], index=sorted(list(le_dict.get('Sex').classes_)).index(st.session_state['form_data']['sex']) if le_dict and st.session_state['form_data']['sex'] else 0, key="sex_input")
+                calvings = st.number_input(t["calvings"], min_value=0, max_value=15, value=st.session_state['form_data']['calvings'], step=1, key="calvings_input")
+                abortion = st.selectbox(t["abortion"], options=sorted(list(le_dict.get('Abortion History (Yes No)').classes_)) if le_dict else ["Loading..."], index=sorted(list(le_dict.get('Abortion History (Yes No)').classes_)).index(st.session_state['form_data']['abortion']) if le_dict and st.session_state['form_data']['abortion'] else 0, key="abortion_input")
+                infertility = st.selectbox(t["infertility"], options=sorted(list(le_dict.get('Infertility Repeat breeder(Yes No)').classes_)) if le_dict else ["Loading..."], index=sorted(list(le_dict.get('Infertility Repeat breeder(Yes No)').classes_)).index(st.session_state['form_data']['infertility']) if le_dict and st.session_state['form_data']['infertility'] else 0, key="infertility_input")
             
             with col_b:
-                vaccine = st.selectbox(t["vaccination"], options=sorted(list(le_dict.get('Brucella vaccination status (Yes No)').classes_)) if le_dict else ["Loading..."], key="vaccine_input")
-                sample = st.selectbox(t["sample"], options=sorted(list(le_dict.get('Sample Type(Serum Milk)').classes_)) if le_dict else ["Loading..."], key="sample_input")
-                test = st.selectbox(t["test"], options=sorted(list(le_dict.get('Test Type (RBPT ELISA MRT)').classes_)) if le_dict else ["Loading..."], key="test_input")
-                retained = st.selectbox(t["retained"], options=sorted(list(le_dict.get('Retained Placenta Stillbirth(Yes No No Data)').classes_)) if le_dict else ["Loading..."], key="retained_input")
-                disposal = st.selectbox(t["disposal"], options=sorted(list(le_dict.get('Proper Disposal of Aborted Fetuses (Yes No)').classes_)) if le_dict else ["Loading..."], key="disposal_input")
+                vaccine = st.selectbox(t["vaccination"], options=sorted(list(le_dict.get('Brucella vaccination status (Yes No)').classes_)) if le_dict else ["Loading..."], index=sorted(list(le_dict.get('Brucella vaccination status (Yes No)').classes_)).index(st.session_state['form_data']['vaccine']) if le_dict and st.session_state['form_data']['vaccine'] else 0, key="vaccine_input")
+                sample = st.selectbox(t["sample"], options=sorted(list(le_dict.get('Sample Type(Serum Milk)').classes_)) if le_dict else ["Loading..."], index=sorted(list(le_dict.get('Sample Type(Serum Milk)').classes_)).index(st.session_state['form_data']['sample']) if le_dict and st.session_state['form_data']['sample'] else 0, key="sample_input")
+                test = st.selectbox(t["test"], options=sorted(list(le_dict.get('Test Type (RBPT ELISA MRT)').classes_)) if le_dict else ["Loading..."], index=sorted(list(le_dict.get('Test Type (RBPT ELISA MRT)').classes_)).index(st.session_state['form_data']['test']) if le_dict and st.session_state['form_data']['test'] else 0, key="test_input")
+                retained = st.selectbox(t["retained"], options=sorted(list(le_dict.get('Retained Placenta Stillbirth(Yes No No Data)').classes_)) if le_dict else ["Loading..."], index=sorted(list(le_dict.get('Retained Placenta Stillbirth(Yes No No Data)').classes_)).index(st.session_state['form_data']['retained']) if le_dict and st.session_state['form_data']['retained'] else 0, key="retained_input")
+                disposal = st.selectbox(t["disposal"], options=sorted(list(le_dict.get('Proper Disposal of Aborted Fetuses (Yes No)').classes_)) if le_dict else ["Loading..."], index=sorted(list(le_dict.get('Proper Disposal of Aborted Fetuses (Yes No)').classes_)).index(st.session_state['form_data']['disposal']) if le_dict and st.session_state['form_data']['disposal'] else 0, key="disposal_input")
+            
+            # Update session state with current form values
+            st.session_state['form_data'].update({
+                'age': age,
+                'breed': breed,
+                'sex': sex,
+                'calvings': calvings,
+                'abortion': abortion,
+                'infertility': infertility,
+                'vaccine': vaccine,
+                'sample': sample,
+                'test': test,
+                'retained': retained,
+                'disposal': disposal
+            })
         
         st.markdown("<br>", unsafe_allow_html=True)
         
-        if st.button(f"🔬 {t['run_prediction']}", use_container_width=True, type="primary"):
+        run_prediction_btn = st.button(f"🔬 {t['run_prediction']}", use_container_width=True, type="primary", key="run_pred_btn")
+        
+        if run_prediction_btn:
             input_data = {
                 'Age': age, 'Breed species': breed, 'Sex': sex, 'Calvings': calvings,
                 'Abortion History (Yes No)': abortion, 'Infertility Repeat breeder(Yes No)': infertility,
@@ -1177,8 +1229,9 @@ else:
             </div>
             """, unsafe_allow_html=True)
             
-            if st.button(f"💬 {t['start_consultation']}", use_container_width=True, key="start_consult"):
+            if st.button(f"💬 {t['start_consultation']}", use_container_width=True, key="toggle_chat_btn"):
                 st.session_state['show_chatbot'] = not st.session_state['show_chatbot']
+                st.rerun()
             
             if st.session_state['show_chatbot']:
                 st.markdown('<div class="chat-container">', unsafe_allow_html=True)

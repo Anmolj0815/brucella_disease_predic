@@ -14,5 +14,7 @@ openpyxl
 gspread
 google-auth
 plotly
-altair
+altair==4.2.2
+
+
 

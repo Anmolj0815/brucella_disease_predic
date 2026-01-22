@@ -14,3 +14,4 @@ openpyxl
 gspread
 google-auth
 plotly
+altair.vegalite.v4

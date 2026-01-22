@@ -144,95 +144,43 @@ translations = {
     }
 }
 
-# --- SESSION STATE & PERSISTENCE ---
-import uuid
-
-@st.cache_resource
-def get_session_cache():
-    return {}
-
-session_cache = get_session_cache()
-
-def init_session():
-    # Check for query param session_id using appropriate Streamlit version method
-    try:
-        # For newer Streamlit versions
-        query_params = st.query_params
-        session_id = query_params.get("session_id", None)
-    except:
-        # Fallback for older Streamlit versions (like 1.29.0)
-        try:
-            query_params = st.experimental_get_query_params()
-            session_id = query_params.get("session_id", [None])[0]
-        except:
-            session_id = None
-
-    if session_id and session_id in session_cache:
-        user_data = session_cache[session_id]
-        if 'logged_in' not in st.session_state or not st.session_state['logged_in']:
-            st.session_state['logged_in'] = True
-            st.session_state['username'] = user_data['username']
-            st.session_state['current_session_id'] = session_id
-    
-    if 'logged_in' not in st.session_state:
-        st.session_state['logged_in'] = False
-    if 'chat_history' not in st.session_state:
-        st.session_state['chat_history'] = []
-    if 'show_chatbot' not in st.session_state:
-        st.session_state['show_chatbot'] = False
-    if 'prediction_count' not in st.session_state:
-        st.session_state['prediction_count'] = 1247
-    if 'positive_count' not in st.session_state:
-        st.session_state['positive_count'] = 87
-    if 'ai_consultation_count' not in st.session_state:
-        st.session_state['ai_consultation_count'] = 342
-    if 'last_prediction' not in st.session_state:
-        st.session_state['last_prediction'] = None
-    if 'otp_sent' not in st.session_state:
-        st.session_state['otp_sent'] = False
-    if 'otp_code' not in st.session_state:
-        st.session_state['otp_code'] = None
-    if 'otp_timestamp' not in st.session_state:
-        st.session_state['otp_timestamp'] = None
-    if 'pending_user_data' not in st.session_state:
-        st.session_state['pending_user_data'] = None
-    if 'form_data' not in st.session_state:
-        st.session_state['form_data'] = {
-            'age': 5,
-            'breed': None,
-            'sex': None,
-            'calvings': 1,
-            'abortion': None,
-            'infertility': None,
-            'vaccine': None,
-            'sample': None,
-            'test': None,
-            'retained': None,
-            'disposal': None
-        }
-
-init_session()
-
-def create_user_session(username):
-    new_session_id = str(uuid.uuid4())
-    session_cache[new_session_id] = {'username': username}
-    st.session_state['current_session_id'] = new_session_id
-    try:
-        st.query_params["session_id"] = new_session_id
-    except:
-        st.experimental_set_query_params(session_id=new_session_id)
-
-def logout_user():
-    if 'current_session_id' in st.session_state:
-        sid = st.session_state['current_session_id']
-        if sid in session_cache:
-            del session_cache[sid]
-    st.session_state.clear()
-    try:
-        st.query_params.clear()
-    except:
-        st.experimental_set_query_params()
-    st.rerun()
+# --- SESSION STATE ---
+if 'logged_in' not in st.session_state:
+    st.session_state['logged_in'] = False
+if 'chat_history' not in st.session_state:
+    st.session_state['chat_history'] = []
+if 'show_chatbot' not in st.session_state:
+    st.session_state['show_chatbot'] = False
+if 'prediction_count' not in st.session_state:
+    st.session_state['prediction_count'] = 1247
+if 'positive_count' not in st.session_state:
+    st.session_state['positive_count'] = 87
+if 'ai_consultation_count' not in st.session_state:
+    st.session_state['ai_consultation_count'] = 342
+if 'last_prediction' not in st.session_state:
+    st.session_state['last_prediction'] = None
+if 'otp_sent' not in st.session_state:
+    st.session_state['otp_sent'] = False
+if 'otp_code' not in st.session_state:
+    st.session_state['otp_code'] = None
+if 'otp_timestamp' not in st.session_state:
+    st.session_state['otp_timestamp'] = None
+if 'pending_user_data' not in st.session_state:
+    st.session_state['pending_user_data'] = None
+if 'form_data' not in st.session_state:
+    st.session_state['form_data'] = {
+        'age': 5,
+        'breed': None,
+        'sex': None,
+        'calvings': 1,
+        'abortion': None,
+        'infertility': None,
+        'vaccine': None,
+        'sample': None,
+        'test': None,
+        'retained': None,
+        'disposal': None
+    }
 
 # --- MODEL LOADING ---
 MODEL_ARTIFACTS_DIR = 'model_artifacts/'
@@ -339,216 +287,506 @@ best_model, le_dict, le_target, scaler, feature_names = load_all_artifacts()
 # --- ENHANCED CUSTOM CSS ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
     
-    :root {
-        --primary: #4f46e5;
-        --secondary: #ec4899;
-        --success: #10b981;
-        --warning: #f59e0b;
-        --danger: #ef4444;
-        --dark: #0f172a;
-        --light: #f8fafc;
-        --glass-bg: rgba(255, 255, 255, 0.9);
-        --glass-border: rgba(255, 255, 255, 0.2);
-    }
-
     * {
-        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
     
-    /* Dynamic Animated Background */
+    /* Main App Background */
     .stApp {
-        background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
-        background-size: 400% 400%;
-        animation: gradient 15s ease infinite;
+        background: #f5f7fa;
     }
     
-    @keyframes gradient {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-    }
-    
-    /* Glassmorphism Containers */
+    /* Remove default padding */
     .main .block-container {
         padding-top: 2rem;
-        max-width: 95%;
+        padding-bottom: 2rem;
+        max-width: 100%;
     }
     
-    /* Sidebar Styling */
+    /* Sidebar Styling - Modern Dark Blue */
     [data-testid="stSidebar"] {
-        background-color: rgba(15, 23, 42, 0.95);
-        backdrop-filter: blur(10px);
-        border-right: 1px solid rgba(255, 255, 255, 0.1);
+        background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 50%, #2563eb 100%);
+        box-shadow: 4px 0 12px rgba(0,0,0,0.1);
     }
     
+    [data-testid="stSidebar"] > div:first-child {
+        background: transparent;
+    }
+    
+    /* Sidebar Text */
     [data-testid="stSidebar"] .stMarkdown,
     [data-testid="stSidebar"] label {
-        color: #e2e8f0 !important;
+        color: white !important;
     }
     
-    /* Modern Buttons in Sidebar */
+    /* Sidebar Buttons */
     [data-testid="stSidebar"] .stButton > button {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        width: 100%;
+        background: rgba(255, 255, 255, 0.1);
         color: white;
-        border-radius: 12px;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        margin-bottom: 0.5rem;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin: 0.25rem 0;
+        transition: all 0.2s ease;
+        text-align: left;
+        font-weight: 500;
     }
     
     [data-testid="stSidebar"] .stButton > button:hover {
-        background: linear-gradient(90deg, var(--primary), var(--secondary));
-        border-color: transparent;
-        transform: translateX(5px);
-        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
-    }
-
-    /* Cards */
-    .dashboard-header, .metric-card, .section-card, .prediction-result {
-        background: var(--glass-bg);
-        backdrop-filter: blur(12px);
-        border-radius: 20px;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.3);
+        transform: translateX(4px);
     }
     
+    /* Dashboard Header Card */
     .dashboard-header {
-        padding: 2.5rem;
-        background: rgba(255, 255, 255, 0.95);
-        border-left: 8px solid var(--primary);
+        background: white;
+        padding: 2rem;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        margin-bottom: 2rem;
+        border-left: 6px solid #10b981;
     }
     
-    .metric-card:hover, .section-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-    }
-    
-    /* Metric Cards Specifics */
-    .metric-card {
-        padding: 1.5rem;
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .metric-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 4px;
-        background: linear-gradient(90deg, var(--primary), var(--secondary));
-    }
-    
-    /* Typography */
     .dashboard-title {
-        background: linear-gradient(to right, #1e293b, #4b5563);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 800;
-        letter-spacing: -1px;
+        font-size: 2.25rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin: 0 0 0.5rem 0;
+        letter-spacing: -0.5px;
+    }
+    
+    .dashboard-subtitle {
+        font-size: 1rem;
+        color: #64748b;
+        margin: 0;
+    }
+    
+    /* Metric Cards */
+    .metric-card {
+        background: white;
+        padding: 1.75rem;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        border-left: 5px solid;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    
+    .metric-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+    
+    .metric-card.blue { border-left-color: #3b82f6; }
+    .metric-card.red { border-left-color: #ef4444; }
+    .metric-card.green { border-left-color: #10b981; }
+    .metric-card.purple { border-left-color: #8b5cf6; }
+    
+    .metric-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+    }
+    
+    .metric-icon {
+        font-size: 2.5rem;
+        opacity: 0.8;
     }
     
     .metric-value {
-        font-size: 2.5rem;
+        font-size: 2.75rem;
         font-weight: 800;
-        background: linear-gradient(45deg, #1e293b, #4f46e5);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        color: #1e293b;
+        line-height: 1;
+        margin: 0.75rem 0;
     }
     
-    /* Form Elements */
-    .stTextInput input, .stNumberInput input, .stSelectbox select {
-        background: white;
-        border: 2px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 0.75rem;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-        transition: all 0.3s ease;
-    }
-    
-    .stTextInput input:focus, .stNumberInput input:focus, .stSelectbox select:focus {
-        border-color: var(--primary);
-        box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
-    }
-    
-    /* Buttons */
-    .stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-        box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
-        border: none;
-        padding: 0.8rem 2rem;
-        font-weight: 600;
+    .metric-label {
+        font-size: 0.875rem;
+        color: #64748b;
+        text-transform: uppercase;
         letter-spacing: 0.5px;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+    }
+    
+    .metric-change {
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+    }
+    
+    .metric-change.positive {
+        color: #059669;
+        background: #d1fae5;
+    }
+    
+    .metric-change.negative {
+        color: #dc2626;
+        background: #fee2e2;
+    }
+    
+    /* Section Cards */
+    .section-card {
+        background: white;
+        padding: 2rem;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        margin-bottom: 1.5rem;
+    }
+    
+    .section-header {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin: 0 0 0.5rem 0;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .section-subtitle {
+        font-size: 0.95rem;
+        color: #64748b;
+        margin: 0 0 1.5rem 0;
+    }
+    
+    /* Input Fields */
+    .stTextInput > div > div > input,
+    .stNumberInput > div > div > input,
+    .stSelectbox > div > div > select {
+        border-radius: 10px;
+        border: 2px solid #e2e8f0;
+        padding: 0.75rem 1rem;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+    }
+    
+    .stTextInput > div > div > input:focus,
+    .stNumberInput > div > div > input:focus,
+    .stSelectbox > div > div > select:focus {
+        border-color: #10b981;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    }
+    
+    /* Labels */
+    .stTextInput label,
+    .stNumberInput label,
+    .stSelectbox label {
+        font-weight: 600;
+        color: #334155;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Primary Button */
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 0.875rem 2rem;
+        font-weight: 700;
+        font-size: 1.05rem;
+        box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+        transition: all 0.3s ease;
+        width: 100%;
     }
     
     .stButton > button[kind="primary"]:hover {
-        box-shadow: 0 6px 20px rgba(79, 70, 229, 0.6);
         transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
     }
     
-    /* AI Chat Interface */
+    /* Secondary Buttons */
+    .stButton > button {
+        border-radius: 10px;
+        padding: 0.65rem 1.25rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        border: 2px solid #e2e8f0;
+    }
+    
+    .stButton > button:hover {
+        border-color: #10b981;
+        background: #f0fdf4;
+        color: #059669;
+    }
+    
+    /* Prediction Result Card */
+    .prediction-result {
+        padding: 2.5rem;
+        border-radius: 16px;
+        margin: 1.5rem 0;
+        border: 3px solid;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+    
+    .prediction-result.positive {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        border-color: #ef4444;
+    }
+    
+    .prediction-result.negative {
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        border-color: #10b981;
+    }
+    
+    .result-status {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .result-confidence {
+        font-size: 1.35rem;
+        font-weight: 600;
+        opacity: 0.85;
+    }
+    
+    /* AI Assistant Card */
     .ai-card {
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        border: 1px solid rgba(255,255,255,0.1);
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        padding: 2.25rem;
+        border-radius: 16px;
         color: white;
+        box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
+        margin-bottom: 1.5rem;
     }
     
-    .chat-container {
-        border: none;
+    .ai-card-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+    
+    .ai-card-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 0.75rem;
+    }
+    
+    .ai-card-subtitle {
+        font-size: 1rem;
+        opacity: 0.95;
+        line-height: 1.6;
+        margin-bottom: 1.5rem;
+    }
+    
+    .ai-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(255, 255, 255, 0.2);
+        padding: 0.375rem 0.875rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+    
+    /* Quick Actions */
+    .quick-action {
+        background: white;
+        padding: 1.25rem;
+        border-radius: 12px;
+        border: 2px solid #f1f5f9;
+        margin: 0.75rem 0;
+        cursor: pointer;
+        transition: all 0.25s ease;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .quick-action:hover {
         background: #f8fafc;
-        box-shadow: inset 0 2px 10px rgba(0,0,0,0.05);
+        border-color: #10b981;
+        transform: translateX(6px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .quick-action-icon {
+        font-size: 1.75rem;
+        width: 50px;
+        height: 50px;
+        background: #f0fdf4;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .quick-action-label {
+        flex: 1;
+        font-weight: 600;
+        color: #334155;
+        font-size: 0.95rem;
+    }
+    
+    /* Chat Container */
+    .chat-container {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        max-height: 450px;
+        overflow-y: auto;
+        margin: 1.5rem 0;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        border: 2px solid #f1f5f9;
+    }
+    
+    .chat-message {
+        padding: 1rem 1.25rem;
+        border-radius: 12px;
+        margin: 0.75rem 0;
+        animation: slideIn 0.3s ease;
+    }
+    
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
     
     .chat-message.user {
-        background: #4f46e5;
-        color: white;
-        border: none;
-        border-radius: 20px 20px 0 20px;
-        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        margin-left: 2.5rem;
+        border: 1px solid #bfdbfe;
     }
     
     .chat-message.assistant {
+        background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+        margin-right: 2.5rem;
+        border: 1px solid #e5e7eb;
+    }
+    
+    .chat-message strong {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-size: 0.85rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: #94a3b8;
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        margin-bottom: 1.5rem;
+        opacity: 0.4;
+    }
+    
+    .empty-state-text {
+        font-size: 1.1rem;
+        font-weight: 500;
+    }
+    
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0.5rem;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        height: 3.5rem;
         background: white;
-        color: #1e293b;
-        border: none;
-        border-radius: 20px 20px 20px 0;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    }
-
-    /* Login Page */
-    .login-container-wrapper {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        min-height: 80vh;
+        border-radius: 12px;
+        padding: 0 2rem;
+        font-weight: 600;
+        border: 2px solid #f1f5f9;
     }
     
-    .login-box {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(20px);
-        padding: 3rem;
-        border-radius: 24px;
-        box-shadow: 0 20px 50px rgba(0,0,0,0.2);
-        width: 100%;
-        max-width: 450px;
-        border: 1px solid white;
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        border-color: #10b981;
     }
     
-    /* Custom Scrollbar */
+    /* Login Container */
+    .login-container {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+        overflow: hidden;
+        max-width: 480px;
+        margin: 0 auto;
+    }
+    
+    .login-header {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        padding: 3rem 2rem;
+        text-align: center;
+        color: white;
+    }
+    
+    .login-header h1 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin: 0;
+    }
+    
+    .login-header p {
+        font-size: 1rem;
+        opacity: 0.95;
+        margin: 0.5rem 0 0 0;
+    }
+    
+    /* Info Cards */
+    .info-card {
+        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+        border: 2px solid #86efac;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+    }
+    
+    /* Scrollbar */
     ::-webkit-scrollbar {
-        width: 8px;
+        width: 10px;
+        height: 10px;
     }
+    
     ::-webkit-scrollbar-track {
-        background: rgba(0,0,0,0.05);
-    }
-    ::-webkit-scrollbar-thumb {
-        background: rgba(0,0,0,0.2);
+        background: #f1f5f9;
         border-radius: 10px;
     }
+    
+    ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 10px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
+    
+    /* Hide Streamlit Branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -564,29 +802,24 @@ if not st.session_state['logged_in']:
     col1, col2, col3 = st.columns([1, 2.5, 1])
     with col2:
         st.markdown("""
-        <div class="login-box">
-            <div style="text-align: center; margin-bottom: 2rem;">
-                <div style="font-size: 4rem; margin-bottom: 0.5rem; animation: float 6s ease-in-out infinite;">🧬</div>
-                <h1 style="color: #1e293b; font-weight: 800; margin-bottom: 0.5rem;">BrucellosisAI</h1>
-                <p style="color: #64748b;">Next Gen Disease Prediction</p>
+        <div class="login-container">
+            <div class="login-header">
+                <div style="font-size: 4rem; margin-bottom: 1rem;">🔬</div>
+                <h1>BrucellosisAI</h1>
+                <p>Advanced Disease Prediction System</p>
             </div>
-            
-            <style>
-                @keyframes float {
-                    0% { transform: translateY(0px); }
-                    50% { transform: translateY(-10px); }
-                    100% { transform: translateY(0px); }
-                }
-            </style>
+        </div>
         """, unsafe_allow_html=True)
         
-        tab1, tab2 = st.tabs(["🔐 Login", "📝 Sign Up"])
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        tab1, tab2 = st.tabs(["🔐 Login", "📝 Register"])
         
         with tab1:
             with st.form("login_form"):
-                st.text_input("Email", key="login_email")
-                st.text_input("Password", type="password", key="login_password")
-                submit = st.form_submit_button("Access Dashboard", use_container_width=True, type="primary")
+                st.text_input("📧 Email Address", key="login_email")
+                st.text_input("🔒 Password", type="password", key="login_password")
+                submit = st.form_submit_button("Login", use_container_width=True, type="primary")
                 
                 if submit:
                     try:
@@ -594,14 +827,11 @@ if not st.session_state['logged_in']:
                             users = json.load(f)
                         if st.session_state.login_email in users and pbkdf2_sha256.verify(st.session_state.login_password, users[st.session_state.login_email]):
                             st.session_state.update(logged_in=True, username=st.session_state.login_email)
-                            create_user_session(st.session_state.login_email)
                             st.rerun()
                         else:
-                            st.error("❌ Invalid credentials")
+                            st.error("❌ Invalid email or password")
                     except:
-                        st.error("❌ Database error")
-        
-        # Div moved to after tab2
+                        st.error("❌ User database not found")
         
         with tab2:
             if not st.session_state['otp_sent']:
@@ -668,8 +898,6 @@ if not st.session_state['logged_in']:
                             st.success("✅ New code sent")
                             st.rerun()
 
-        st.markdown("</div>", unsafe_allow_html=True)
-
 else:
     # --- SIDEBAR MENU ---
     selected_lang = st.sidebar.selectbox("🌐 Language", ["English", "Hindi"], label_visibility="collapsed")
@@ -724,7 +952,8 @@ else:
         st.markdown("<br>", unsafe_allow_html=True)
         
         if st.button(f"🚪 {t['logout']}", use_container_width=True, type="primary"):
-            logout_user()
+            st.session_state.update(logged_in=False, username=None)
+            st.rerun()
     
     # --- MAIN CONTENT ---
     # Dashboard Header
@@ -1074,3 +1303,4 @@ else:
         <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem;">© 2024 BrucellosisAI. All rights reserved.</p>
     </div>
     """, unsafe_allow_html=True)
+

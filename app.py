@@ -515,7 +515,8 @@ else:
         st.write(t["input_subtitle"])
         
         # Form inputs in a card-like container
-        with st.container():
+        # Form inputs moved to inside a properly defined form
+        with st.form("prediction_form"):
             col_a, col_b = st.columns(2)
             
             # Initialize form data with defaults from session state
@@ -553,7 +554,11 @@ else:
                 retained = st.selectbox(t["retained"], options=sorted(list(le_dict.get('Retained Placenta Stillbirth(Yes No No Data)').classes_)) if le_dict else ["Loading..."], index=sorted(list(le_dict.get('Retained Placenta Stillbirth(Yes No No Data)').classes_)).index(st.session_state['form_data']['retained']) if le_dict and st.session_state['form_data']['retained'] else 0, key="retained_input")
                 disposal = st.selectbox(t["disposal"], options=sorted(list(le_dict.get('Proper Disposal of Aborted Fetuses (Yes No)').classes_)) if le_dict else ["Loading..."], index=sorted(list(le_dict.get('Proper Disposal of Aborted Fetuses (Yes No)').classes_)).index(st.session_state['form_data']['disposal']) if le_dict and st.session_state['form_data']['disposal'] else 0, key="disposal_input")
             
-            # Update session state with current form values
+            st.markdown("<br>", unsafe_allow_html=True)
+            run_prediction_btn = st.form_submit_button(f"🔬 {t['run_prediction']}", use_container_width=True, type="primary")
+        
+        if run_prediction_btn:
+            # Update session state with current form values on submit
             st.session_state['form_data'].update({
                 'age': age,
                 'breed': breed,
@@ -567,12 +572,7 @@ else:
                 'retained': retained,
                 'disposal': disposal
             })
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        run_prediction_btn = st.button(f"🔬 {t['run_prediction']}", use_container_width=True, type="primary", key="run_pred_btn")
-        
-        if run_prediction_btn:
+
             input_data = {
                 'Age': age, 'Breed species': breed, 'Sex': sex, 'Calvings': calvings,
                 'Abortion History (Yes No)': abortion, 'Infertility Repeat breeder(Yes No)': infertility,
@@ -705,33 +705,34 @@ else:
                         st.markdown(f"**{role_label}:** {msg['content']}")
                 st.markdown("---")
                 
-                user_question = st.text_input("💬 Your question...", key="chat_input")
+                with st.form("chat_form", clear_on_submit=True):
+                    user_question = st.text_input("💬 Your question...", key="chat_input")
+                    col_send, col_clear = st.columns([3, 1])
+                    with col_send:
+                        submit_chat = st.form_submit_button("Send", use_container_width=True)
                 
-                col_send, col_clear = st.columns([3, 1])
-                with col_send:
-                    if st.button("Send", use_container_width=True) and user_question:
-                        st.session_state['chat_history'].append({"role": "user", "content": user_question})
-                        
-                        with st.spinner("Thinking..."):
-                            try:
-                                system_prompt = f"""You are a veterinary consultant specializing in Brucellosis and dairy animal health. 
-                                Answer questions about: Brucellosis disease, symptoms, transmission, prevention, vaccination, milk safety, 
-                                treatment, diagnosis tests, farm biosecurity, and cattle/buffalo health. 
-                                Provide clear, practical advice in {'Hindi' if selected_lang == 'Hindi' else 'English'}. 
-                                Keep answers concise (3-5 sentences)."""
-                                
-                                full_prompt = f"{system_prompt}\n\nUser Question: {user_question}"
-                                response = gemini_model.generate_content(full_prompt)
-                                st.session_state['chat_history'].append({"role": "assistant", "content": response.text})
-                                st.session_state['ai_consultation_count'] += 1
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Chat Error: {e}")
+                if submit_chat and user_question:
+                    st.session_state['chat_history'].append({"role": "user", "content": user_question})
+                    
+                    with st.spinner("Thinking..."):
+                        try:
+                            system_prompt = f"""You are a veterinary consultant specializing in Brucellosis and dairy animal health. 
+                            Answer questions about: Brucellosis disease, symptoms, transmission, prevention, vaccination, milk safety, 
+                            treatment, diagnosis tests, farm biosecurity, and cattle/buffalo health. 
+                            Provide clear, practical advice in {'Hindi' if selected_lang == 'Hindi' else 'English'}. 
+                            Keep answers concise (3-5 sentences)."""
+                            
+                            full_prompt = f"{system_prompt}\n\nUser Question: {user_question}"
+                            response = gemini_model.generate_content(full_prompt)
+                            st.session_state['chat_history'].append({"role": "assistant", "content": response.text})
+                            st.session_state['ai_consultation_count'] += 1
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Chat Error: {e}")
                 
-                with col_clear:
-                    if st.button("Clear", use_container_width=True):
-                        st.session_state['chat_history'] = []
-                        st.rerun()
+                if st.button("Clear", use_container_width=True):
+                    st.session_state['chat_history'] = []
+                    st.rerun()
         
         # Quick Actions
         st.markdown("<br>", unsafe_allow_html=True)

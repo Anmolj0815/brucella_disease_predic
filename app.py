@@ -710,6 +710,8 @@ else:
                     col_send, col_clear = st.columns([3, 1])
                     with col_send:
                         submit_chat = st.form_submit_button("Send", use_container_width=True)
+                    with col_clear:
+                        submit_clear = st.form_submit_button("Clear", use_container_width=True)
                 
                 if submit_chat and user_question:
                     st.session_state['chat_history'].append({"role": "user", "content": user_question})
@@ -730,7 +732,7 @@ else:
                         except Exception as e:
                             st.error(f"Chat Error: {e}")
                 
-                if st.button("Clear", use_container_width=True):
+                if submit_clear:
                     st.session_state['chat_history'] = []
                     st.rerun()
         

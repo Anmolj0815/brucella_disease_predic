@@ -234,6 +234,35 @@ def logout_user():
         st.experimental_set_query_params()
     st.rerun()
 
+
+# --- CHAT CALLBACKS ---
+def handle_chat_submit():
+    user_input = st.session_state.chat_input
+    if user_input:
+        st.session_state['chat_history'].append({"role": "user", "content": user_input})
+        try:
+            # Access language from session state or default to English
+            lang = st.session_state.get('selected_language', 'English')
+            
+            system_prompt = f"""You are a veterinary consultant specializing in Brucellosis and dairy animal health. 
+            Answer questions about: Brucellosis disease, symptoms, transmission, prevention, vaccination, milk safety, 
+            treatment, diagnosis tests, farm biosecurity, and cattle/buffalo health. 
+            Provide clear, practical advice in {'Hindi' if lang == 'Hindi' else 'English'}. 
+            Keep answers concise (3-5 sentences)."""
+            
+            full_prompt = f"{system_prompt}\n\nUser Question: {user_input}"
+            
+            # Using st.spinner in callback is possible but renders at the top of the app usually.
+            # We will use the model directly.
+            response = gemini_model.generate_content(full_prompt)
+            st.session_state['chat_history'].append({"role": "assistant", "content": response.text})
+            st.session_state['ai_consultation_count'] += 1
+        except Exception as e:
+            st.session_state['chat_error'] = str(e)
+
+def handle_chat_clear():
+    st.session_state['chat_history'] = []
+
 # --- MODEL LOADING ---
 MODEL_ARTIFACTS_DIR = 'model_artifacts/'
 USERS_FILE = MODEL_ARTIFACTS_DIR + 'users.json'
@@ -456,7 +485,7 @@ if not st.session_state['logged_in']:
 
 else:
     # --- SIDEBAR MENU ---
-    selected_lang = st.sidebar.selectbox("🌐 Language", ["English", "Hindi"], label_visibility="collapsed")
+    selected_lang = st.sidebar.selectbox("🌐 Language", ["English", "Hindi"], label_visibility="collapsed", key="selected_language")
     t = translations[selected_lang]
     
     with st.sidebar:
@@ -705,36 +734,19 @@ else:
                         st.markdown(f"**{role_label}:** {msg['content']}")
                 st.markdown("---")
                 
+                if 'chat_error' in st.session_state and st.session_state['chat_error']:
+                    st.error(f"Chat Error: {st.session_state['chat_error']}")
+                    st.session_state['chat_error'] = None
+
                 with st.form("chat_form", clear_on_submit=True):
-                    user_question = st.text_input("💬 Your question...", key="chat_input")
+                    # Important: key="chat_input" binds this input to st.session_state.chat_input
+                    st.text_input("💬 Your question...", key="chat_input")
                     col_send, col_clear = st.columns([3, 1])
                     with col_send:
-                        submit_chat = st.form_submit_button("Send", use_container_width=True)
+                        # on_click callback runs BEFORE the script rerun
+                        st.form_submit_button("Send", use_container_width=True, on_click=handle_chat_submit)
                     with col_clear:
-                        submit_clear = st.form_submit_button("Clear", use_container_width=True)
-                
-                if submit_chat and user_question:
-                    st.session_state['chat_history'].append({"role": "user", "content": user_question})
-                    
-                    with st.spinner("Thinking..."):
-                        try:
-                            system_prompt = f"""You are a veterinary consultant specializing in Brucellosis and dairy animal health. 
-                            Answer questions about: Brucellosis disease, symptoms, transmission, prevention, vaccination, milk safety, 
-                            treatment, diagnosis tests, farm biosecurity, and cattle/buffalo health. 
-                            Provide clear, practical advice in {'Hindi' if selected_lang == 'Hindi' else 'English'}. 
-                            Keep answers concise (3-5 sentences)."""
-                            
-                            full_prompt = f"{system_prompt}\n\nUser Question: {user_question}"
-                            response = gemini_model.generate_content(full_prompt)
-                            st.session_state['chat_history'].append({"role": "assistant", "content": response.text})
-                            st.session_state['ai_consultation_count'] += 1
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Chat Error: {e}")
-                
-                if submit_clear:
-                    st.session_state['chat_history'] = []
-                    st.rerun()
+                        st.form_submit_button("Clear", use_container_width=True, on_click=handle_chat_clear)
         
         # Quick Actions
         st.markdown("<br>", unsafe_allow_html=True)

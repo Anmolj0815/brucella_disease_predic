@@ -421,13 +421,31 @@ else:
         st.markdown("---")
         st.write(f"👤 {st.session_state.get('username', 'User')}")
         
-        if st.button(f"🚪 {t['logout']}", use_container_width=True):
-            st.session_state.clear()
+        # Logout with callback for proper handling
+        def do_logout():
+            # Clear session cache
+            try:
+                session_id = st.query_params.get("session_id", None)
+                if session_id and session_id in session_cache:
+                    del session_cache[session_id]
+            except:
+                pass
+            # Clear query params
             try:
                 st.query_params.clear()
             except:
-                pass
+                try:
+                    st.experimental_set_query_params()
+                except:
+                    pass
+            # Reset login state
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.session_state['logged_in'] = False
+        
+        if st.button(f"🚪 {t['logout']}", use_container_width=True, on_click=do_logout):
             st.rerun()
+
     
     t = translations[lang]
     

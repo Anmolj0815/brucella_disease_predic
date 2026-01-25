@@ -12,7 +12,7 @@ import google.generativeai as genai
 from sklearn.preprocessing import LabelEncoder
 from sklearn.neural_network import MLPClassifier
 from sklearn.svm import SVC
-from sklearn.linear_network import LogisticRegression
+from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 from passlib.hash import pbkdf2_sha256
 import gspread
@@ -319,3 +319,4 @@ else:
 
 st.markdown("---")
 st.markdown("<div style='text-align: center;'>© 2026 BrucellosisAI. All rights reserved.</div>", unsafe_allow_html=True)
+

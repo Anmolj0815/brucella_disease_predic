@@ -22,6 +22,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import random
 import time
+import uuid
 
 warnings.filterwarnings('ignore')
 
@@ -145,9 +146,6 @@ translations = {
 }
 
 # --- SESSION STATE & PERSISTENCE ---
-import uuid
-
-
 @st.cache_resource
 def get_session_cache():
     return {}
@@ -159,11 +157,9 @@ session_cache = get_session_cache()
 def init_session():
     # Check for query param session_id using appropriate Streamlit version method
     try:
-        # For newer Streamlit versions
         query_params = st.query_params
         session_id = query_params.get("session_id", None)
     except:
-        # Fallback for older Streamlit versions (like 1.29.0)
         try:
             query_params = st.experimental_get_query_params()
             session_id = query_params.get("session_id", [None])[0]
@@ -177,30 +173,20 @@ def init_session():
             st.session_state['username'] = user_data['username']
             st.session_state['current_session_id'] = session_id
 
-    if 'logged_in' not in st.session_state:
-        st.session_state['logged_in'] = False
-    if 'chat_history' not in st.session_state:
-        st.session_state['chat_history'] = []
-    if 'show_chatbot' not in st.session_state:
-        st.session_state['show_chatbot'] = False
-    if 'prediction_count' not in st.session_state:
-        st.session_state['prediction_count'] = 1247
-    if 'positive_count' not in st.session_state:
-        st.session_state['positive_count'] = 87
-    if 'ai_consultation_count' not in st.session_state:
-        st.session_state['ai_consultation_count'] = 342
-    if 'last_prediction' not in st.session_state:
-        st.session_state['last_prediction'] = None
-    if 'otp_sent' not in st.session_state:
-        st.session_state['otp_sent'] = False
-    if 'otp_code' not in st.session_state:
-        st.session_state['otp_code'] = None
-    if 'otp_timestamp' not in st.session_state:
-        st.session_state['otp_timestamp'] = None
-    if 'pending_user_data' not in st.session_state:
-        st.session_state['pending_user_data'] = None
-    if 'form_data' not in st.session_state:
-        st.session_state['form_data'] = {
+    defaults = {
+        'logged_in': False,
+        'chat_history': [],
+        'show_chatbot': False,
+        'prediction_count': 1247,
+        'positive_count': 87,
+        'ai_consultation_count': 342,
+        'last_prediction': None,
+        'otp_sent': False,
+        'otp_code': None,
+        'otp_timestamp': None,
+        'pending_user_data': None,
+        'current_page': 'dashboard',
+        'form_data': {
             'age': 5,
             'breed': None,
             'sex': None,
@@ -213,6 +199,11 @@ def init_session():
             'retained': None,
             'disposal': None
         }
+    }
+    
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
 
 
 init_session()
@@ -238,28 +229,25 @@ def logout_user():
         st.query_params.clear()
     except:
         st.experimental_set_query_params()
-    st.rerun()
 
 
-# --- CHAT CALLBACKS ---
+# --- CALLBACK FUNCTIONS ---
+def toggle_chatbot():
+    st.session_state['show_chatbot'] = not st.session_state['show_chatbot']
+
+
 def handle_chat_submit():
-    user_input = st.session_state.chat_input
-    if user_input:
+    user_input = st.session_state.get('chat_input', '')
+    if user_input and gemini_model:
         st.session_state['chat_history'].append({"role": "user", "content": user_input})
         try:
-            # Access language from session state or default to English
             lang = st.session_state.get('selected_language', 'English')
-
             system_prompt = f"""You are a veterinary consultant specializing in Brucellosis and dairy animal health. 
             Answer questions about: Brucellosis disease, symptoms, transmission, prevention, vaccination, milk safety, 
             treatment, diagnosis tests, farm biosecurity, and cattle/buffalo health. 
             Provide clear, practical advice in {'Hindi' if lang == 'Hindi' else 'English'}. 
             Keep answers concise (3-5 sentences)."""
-
             full_prompt = f"{system_prompt}\n\nUser Question: {user_input}"
-
-            # Using st.spinner in callback is possible but renders at the top of the app usually.
-            # We will use the model directly.
             response = gemini_model.generate_content(full_prompt)
             st.session_state['chat_history'].append({"role": "assistant", "content": response.text})
             st.session_state['ai_consultation_count'] += 1
@@ -269,6 +257,10 @@ def handle_chat_submit():
 
 def handle_chat_clear():
     st.session_state['chat_history'] = []
+
+
+def set_page(page_name):
+    st.session_state['current_page'] = page_name
 
 
 # --- MODEL LOADING ---
@@ -386,8 +378,7 @@ def load_all_artifacts():
 
 best_model, le_dict, le_target, scaler, feature_names = load_all_artifacts()
 
-# --- ENHANCED CUSTOM CSS ---
-# --- SIMPLE UI CSS ---
+# --- CUSTOM CSS ---
 st.markdown("""
 <style>
     .stApp {
@@ -397,6 +388,21 @@ st.markdown("""
         width: 100%;
         border-radius: 8px;
     }
+    /* Prevent click events on empty areas */
+    .main .block-container {
+        pointer-events: auto;
+    }
+    section[data-testid="stSidebar"] .stRadio > div {
+        gap: 0.5rem;
+    }
+    section[data-testid="stSidebar"] .stRadio label {
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+    section[data-testid="stSidebar"] .stRadio label:hover {
+        background-color: rgba(255,255,255,0.1);
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -405,7 +411,7 @@ if not st.session_state['logged_in']:
     # Language selector at top
     col_lang1, col_lang2, col_lang3 = st.columns([2, 1, 2])
     with col_lang2:
-        selected_lang = st.selectbox("🌐", ["English", "Hindi"], label_visibility="collapsed")
+        selected_lang = st.selectbox("🌐", ["English", "Hindi"], label_visibility="collapsed", key="login_lang")
 
     t = translations[selected_lang]
 
@@ -427,7 +433,8 @@ if not st.session_state['logged_in']:
                         with open(USERS_FILE, 'r') as f:
                             users = json.load(f)
                         if st.session_state.login_email in users and pbkdf2_sha256.verify(st.session_state.login_password, users[st.session_state.login_email]):
-                            st.session_state.update(logged_in=True, username=st.session_state.login_email)
+                            st.session_state['logged_in'] = True
+                            st.session_state['username'] = st.session_state.login_email
                             create_user_session(st.session_state.login_email)
                             st.rerun()
                         else:
@@ -470,81 +477,82 @@ if not st.session_state['logged_in']:
                                 st.rerun()
             else:
                 st.info(f"📧 Verification code sent to {st.session_state['pending_user_data']['email']}")
-                entered_otp = st.text_input("🔢 Enter 6-digit Verification Code", max_chars=6)
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    if st.button("✅ Verify Code", use_container_width=True, type="primary"):
-                        if entered_otp:
-                            is_valid, message = verify_otp(entered_otp)
-                            if is_valid:
-                                user_data = st.session_state['pending_user_data']
-                                success, reg_message = register_user(user_data['email'], user_data['password'], user_data['name'], user_data['phone'], user_data['location'])
-                                if success:
-                                    st.success("✅ " + reg_message + " Please login now.")
-                                    st.session_state['otp_sent'] = False
-                                    st.session_state['otp_code'] = None
-                                    st.session_state['otp_timestamp'] = None
-                                    st.session_state['pending_user_data'] = None
-                                    time.sleep(2)
-                                    st.rerun()
-                                else:
-                                    st.error("❌ " + reg_message)
+                with st.form("otp_form"):
+                    entered_otp = st.text_input("🔢 Enter 6-digit Verification Code", max_chars=6, key="entered_otp")
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        verify_btn = st.form_submit_button("✅ Verify Code", use_container_width=True, type="primary")
+                    with col_b:
+                        resend_btn = st.form_submit_button("🔄 Resend Code", use_container_width=True)
+                    
+                    if verify_btn and entered_otp:
+                        is_valid, message = verify_otp(entered_otp)
+                        if is_valid:
+                            user_data = st.session_state['pending_user_data']
+                            success, reg_message = register_user(user_data['email'], user_data['password'], user_data['name'], user_data['phone'], user_data['location'])
+                            if success:
+                                st.success("✅ " + reg_message + " Please login now.")
+                                st.session_state['otp_sent'] = False
+                                st.session_state['otp_code'] = None
+                                st.session_state['otp_timestamp'] = None
+                                st.session_state['pending_user_data'] = None
+                                time.sleep(2)
+                                st.rerun()
                             else:
-                                st.error("❌ " + message)
-                with col_b:
-                    if st.button("🔄 Resend Code", use_container_width=True):
+                                st.error("❌ " + reg_message)
+                        else:
+                            st.error("❌ " + message)
+                    
+                    if resend_btn:
                         otp = generate_otp()
                         if send_otp_email(st.session_state['pending_user_data']['email'], otp):
                             st.session_state['otp_code'] = otp
                             st.session_state['otp_timestamp'] = time.time()
                             st.success("✅ New code sent")
-                            st.rerun()
 
 else:
     # --- SIDEBAR MENU ---
-    selected_lang = st.sidebar.selectbox("🌐 Language", ["English", "Hindi"], label_visibility="collapsed", key="selected_language")
-    t = translations[selected_lang]
-
     with st.sidebar:
-        st.sidebar.title("BrucellosisAI")
-        st.sidebar.caption("Prediction System")
-
-        st.markdown('<div style="color: rgba(255,255,255,0.6); font-size: 0.75rem; font-weight: 700; letter-spacing: 1px; padding: 0 1rem; margin-bottom: 0.75rem;">MAIN MENU</div>', unsafe_allow_html=True)
-
-        if st.button(f"📊 {t['dashboard_menu']}", use_container_width=True):
-            st.session_state['current_page'] = 'dashboard'
-        if st.button(f"➕ {t['new_prediction']}", use_container_width=True):
-            st.session_state['current_page'] = 'new_prediction'
-        if st.button(f"📜 {t['history']}", use_container_width=True):
-            st.session_state['current_page'] = 'history'
-        if st.button(f"📈 {t['analytics']}", use_container_width=True):
-            st.session_state['current_page'] = 'analytics'
-
-        st.markdown(f'<div style="color: rgba(255,255,255,0.6); font-size: 0.75rem; font-weight: 700; letter-spacing: 1px; padding: 0 1rem; margin: 1.5rem 0 0.75rem 0;">{t["resources"]}</div>', unsafe_allow_html=True)
-
+        st.title("BrucellosisAI")
+        st.caption("Prediction System")
+        
+        selected_lang = st.selectbox("🌐 Language", ["English", "Hindi"], label_visibility="collapsed", key="selected_language")
+        t = translations[selected_lang]
+        
+        st.markdown("---")
+        st.markdown("**MAIN MENU**")
+        
+        # Use radio buttons for navigation (no reruns on every click)
+        menu_options = {
+            f"📊 {t['dashboard_menu']}": 'dashboard',
+            f"➕ {t['new_prediction']}": 'new_prediction',
+            f"📜 {t['history']}": 'history',
+            f"📈 {t['analytics']}": 'analytics'
+        }
+        
+        selected_menu = st.radio(
+            "Navigation",
+            options=list(menu_options.keys()),
+            label_visibility="collapsed",
+            key="nav_menu"
+        )
+        st.session_state['current_page'] = menu_options[selected_menu]
+        
+        st.markdown("---")
+        st.markdown(f"**{t['resources']}**")
+        
         if ai_enabled:
-            if st.button(f"🤖 {t['ai_assistant']}", use_container_width=True, key="sidebar_ai_toggle"):
-                st.session_state['show_chatbot'] = not st.session_state['show_chatbot']
-                st.rerun()
-
-        if st.button(f"📋 {t['guidelines']}", use_container_width=True):
-            pass
-        if st.button(f"⚙️ {t['settings']}", use_container_width=True):
-            pass
-
-        st.markdown("<br>" * 4, unsafe_allow_html=True)
-
-        st.sidebar.markdown("---")
-        st.sidebar.write("👤 **Dr. User**")
-        st.sidebar.caption("Veterinarian")
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        if st.button(f"🚪 {t['logout']}", use_container_width=True, type="primary"):
+            st.checkbox(f"🤖 {t['ai_assistant']}", key="show_chatbot")
+        
+        st.markdown("---")
+        st.write("👤 **Dr. User**")
+        st.caption("Veterinarian")
+        
+        if st.button(f"🚪 {t['logout']}", use_container_width=True, type="primary", key="logout_btn"):
             logout_user()
+            st.rerun()
 
     # --- MAIN CONTENT ---
-    # Dashboard Header
     st.title(t["dashboard"])
     st.caption(t["subtitle"])
 
@@ -556,29 +564,29 @@ else:
         st.subheader(f"📝 {t['input_header']}")
         st.write(t["input_subtitle"])
 
-        # Form inputs moved to inside a properly defined form
+        # Initialize form data with defaults
+        if le_dict:
+            if st.session_state['form_data']['breed'] is None:
+                st.session_state['form_data']['breed'] = sorted(list(le_dict.get('Breed species').classes_))[0]
+            if st.session_state['form_data']['sex'] is None:
+                st.session_state['form_data']['sex'] = sorted(list(le_dict.get('Sex').classes_))[0]
+            if st.session_state['form_data']['abortion'] is None:
+                st.session_state['form_data']['abortion'] = sorted(list(le_dict.get('Abortion History (Yes No)').classes_))[0]
+            if st.session_state['form_data']['infertility'] is None:
+                st.session_state['form_data']['infertility'] = sorted(list(le_dict.get('Infertility Repeat breeder(Yes No)').classes_))[0]
+            if st.session_state['form_data']['vaccine'] is None:
+                st.session_state['form_data']['vaccine'] = sorted(list(le_dict.get('Brucella vaccination status (Yes No)').classes_))[0]
+            if st.session_state['form_data']['sample'] is None:
+                st.session_state['form_data']['sample'] = sorted(list(le_dict.get('Sample Type(Serum Milk)').classes_))[0]
+            if st.session_state['form_data']['test'] is None:
+                st.session_state['form_data']['test'] = sorted(list(le_dict.get('Test Type (RBPT ELISA MRT)').classes_))[0]
+            if st.session_state['form_data']['retained'] is None:
+                st.session_state['form_data']['retained'] = sorted(list(le_dict.get('Retained Placenta Stillbirth(Yes No No Data)').classes_))[0]
+            if st.session_state['form_data']['disposal'] is None:
+                st.session_state['form_data']['disposal'] = sorted(list(le_dict.get('Proper Disposal of Aborted Fetuses (Yes No)').classes_))[0]
+
         with st.form("prediction_form"):
             col_a, col_b = st.columns(2)
-
-            # Initialize form data with defaults from session state
-            if st.session_state['form_data']['breed'] is None and le_dict:
-                st.session_state['form_data']['breed'] = sorted(list(le_dict.get('Breed species').classes_))[0]
-            if st.session_state['form_data']['sex'] is None and le_dict:
-                st.session_state['form_data']['sex'] = sorted(list(le_dict.get('Sex').classes_))[0]
-            if st.session_state['form_data']['abortion'] is None and le_dict:
-                st.session_state['form_data']['abortion'] = sorted(list(le_dict.get('Abortion History (Yes No)').classes_))[0]
-            if st.session_state['form_data']['infertility'] is None and le_dict:
-                st.session_state['form_data']['infertility'] = sorted(list(le_dict.get('Infertility Repeat breeder(Yes No)').classes_))[0]
-            if st.session_state['form_data']['vaccine'] is None and le_dict:
-                st.session_state['form_data']['vaccine'] = sorted(list(le_dict.get('Brucella vaccination status (Yes No)').classes_))[0]
-            if st.session_state['form_data']['sample'] is None and le_dict:
-                st.session_state['form_data']['sample'] = sorted(list(le_dict.get('Sample Type(Serum Milk)').classes_))[0]
-            if st.session_state['form_data']['test'] is None and le_dict:
-                st.session_state['form_data']['test'] = sorted(list(le_dict.get('Test Type (RBPT ELISA MRT)').classes_))[0]
-            if st.session_state['form_data']['retained'] is None and le_dict:
-                st.session_state['form_data']['retained'] = sorted(list(le_dict.get('Retained Placenta Stillbirth(Yes No No Data)').classes_))[0]
-            if st.session_state['form_data']['disposal'] is None and le_dict:
-                st.session_state['form_data']['disposal'] = sorted(list(le_dict.get('Proper Disposal of Aborted Fetuses (Yes No)').classes_))[0]
 
             with col_a:
                 age = st.number_input(t["age"], min_value=0, max_value=20, value=st.session_state['form_data']['age'], step=1, key="age_input")
@@ -598,20 +606,12 @@ else:
             st.markdown("<br>", unsafe_allow_html=True)
             run_prediction_btn = st.form_submit_button(f"🔬 {t['run_prediction']}", use_container_width=True, type="primary")
 
-        if run_prediction_btn:
-            # Update session state with current form values on submit
+        if run_prediction_btn and best_model is not None:
+            # Update session state with current form values
             st.session_state['form_data'].update({
-                'age': age,
-                'breed': breed,
-                'sex': sex,
-                'calvings': calvings,
-                'abortion': abortion,
-                'infertility': infertility,
-                'vaccine': vaccine,
-                'sample': sample,
-                'test': test,
-                'retained': retained,
-                'disposal': disposal
+                'age': age, 'breed': breed, 'sex': sex, 'calvings': calvings,
+                'abortion': abortion, 'infertility': infertility, 'vaccine': vaccine,
+                'sample': sample, 'test': test, 'retained': retained, 'disposal': disposal
             })
 
             input_data = {
@@ -649,7 +649,6 @@ else:
                 st.session_state['prediction_count'] += 1
                 if "Positive" in res_label:
                     st.session_state['positive_count'] += 1
-                st.rerun()
             except Exception as e:
                 st.error(f"❌ Prediction Error: {e}")
 
@@ -707,20 +706,26 @@ else:
             st.plotly_chart(fig, use_container_width=True)
 
             # AI Insights
-            if ai_enabled:
+            if ai_enabled and gemini_model:
                 st.markdown("<br>", unsafe_allow_html=True)
                 st.subheader(f"💡 {t['ai_insights']}")
-                with st.spinner("🤖 Generating AI recommendations..."):
-                    try:
-                        prompt = f"""You are a senior veterinary expert. Analyzing animal data: {json.dumps(pred['input_data'])}. 
-                        Prediction Result: {pred['result']}. Confidence: {pred['confidence']*100:.1f}%. 
-                        If result is Positive, strongly advise immediate isolation and confirmatory lab testing. 
-                        Provide 3-4 clear, actionable steps for the farmer in {'Hindi' if selected_lang == 'Hindi' else 'English'}."""
+                
+                # Cache AI insights in session state to prevent regeneration on every rerun
+                insight_key = f"ai_insight_{hash(str(pred['input_data']))}"
+                if insight_key not in st.session_state:
+                    with st.spinner("🤖 Generating AI recommendations..."):
+                        try:
+                            prompt = f"""You are a senior veterinary expert. Analyzing animal data: {json.dumps(pred['input_data'])}. 
+                            Prediction Result: {pred['result']}. Confidence: {pred['confidence']*100:.1f}%. 
+                            If result is Positive, strongly advise immediate isolation and confirmatory lab testing. 
+                            Provide 3-4 clear, actionable steps for the farmer in {'Hindi' if selected_lang == 'Hindi' else 'English'}."""
 
-                        response = gemini_model.generate_content(prompt)
-                        st.info(response.text)
-                    except Exception as e:
-                        st.error(f"AI Generation Error: {e}")
+                            response = gemini_model.generate_content(prompt)
+                            st.session_state[insight_key] = response.text
+                        except Exception as e:
+                            st.session_state[insight_key] = f"AI Generation Error: {e}"
+                
+                st.info(st.session_state.get(insight_key, ""))
         else:
             st.info(t["run_prediction_msg"])
 
@@ -730,18 +735,19 @@ else:
             st.subheader(f"🤖 {t['vet_assistant']}")
             st.write(t["vet_subtitle"])
 
-            if st.button(f"💬 {t['start_consultation']}", use_container_width=True, key="toggle_chat_btn"):
-                st.session_state['show_chatbot'] = not st.session_state['show_chatbot']
-                st.rerun()
-
-            if st.session_state['show_chatbot']:
+            if st.session_state.get('show_chatbot', False):
                 st.markdown("---")
-                if len(st.session_state['chat_history']) == 0:
-                    st.info("Start a conversation")
-                else:
-                    for msg in st.session_state['chat_history']:
-                        role_label = "You" if msg['role'] == 'user' else "AI Assistant"
-                        st.markdown(f"**{role_label}:** {msg['content']}")
+                
+                # Display chat history
+                chat_container = st.container()
+                with chat_container:
+                    if len(st.session_state['chat_history']) == 0:
+                        st.info("Start a conversation")
+                    else:
+                        for msg in st.session_state['chat_history']:
+                            role_label = "You" if msg['role'] == 'user' else "AI Assistant"
+                            st.markdown(f"**{role_label}:** {msg['content']}")
+                
                 st.markdown("---")
 
                 if 'chat_error' in st.session_state and st.session_state['chat_error']:
@@ -749,11 +755,9 @@ else:
                     st.session_state['chat_error'] = None
 
                 with st.form("chat_form", clear_on_submit=True):
-                    # Important: key="chat_input" binds this input to st.session_state.chat_input
                     st.text_input("💬 Your question...", key="chat_input")
                     col_send, col_clear = st.columns([3, 1])
                     with col_send:
-                        # on_click callback runs BEFORE the script rerun
                         st.form_submit_button("Send", use_container_width=True, on_click=handle_chat_submit)
                     with col_clear:
                         st.form_submit_button("Clear", use_container_width=True, on_click=handle_chat_clear)
@@ -762,14 +766,15 @@ else:
         st.markdown("<br>", unsafe_allow_html=True)
         st.subheader(f"⚡ {t['quick_actions']}")
 
-        quick_actions = [
-            ("📄", t["export_report"]),
-            ("📅", t["schedule_test"]),
-            ("📋", t["view_guidelines"])
-        ]
-
-        for icon, label in quick_actions:
-            st.button(f"{icon} {label}", use_container_width=True, key=f"qa_{label}")
+        # Use expanders instead of buttons to reduce reruns
+        with st.expander(f"📄 {t['export_report']}"):
+            st.write("Export functionality coming soon...")
+        
+        with st.expander(f"📅 {t['schedule_test']}"):
+            st.write("Scheduling functionality coming soon...")
+        
+        with st.expander(f"📋 {t['view_guidelines']}"):
+            st.write("Guidelines will be displayed here...")
 
     # Footer
     st.markdown("<br><br>", unsafe_allow_html=True)

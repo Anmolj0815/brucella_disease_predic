@@ -498,12 +498,13 @@ else:
                     probs = best_model.predict_proba(processed)[0]
                     res_label = le_target.inverse_transform([pred_idx])[0]
                     
+                    # Convert all numpy types to native Python types for JSON serialization
                     st.session_state['last_prediction'] = {
-                        'result': res_label,
+                        'result': str(res_label),
                         'confidence': float(probs.max()),
-                        'probabilities': probs.tolist(),
-                        'classes': le_target.classes_.tolist(),
-                        'input_data': input_data
+                        'probabilities': [float(p) for p in probs],
+                        'classes': [str(c) for c in le_target.classes_],
+                        'input_data': {k: (int(v) if isinstance(v, (int, np.integer)) else str(v)) for k, v in input_data.items()}
                     }
                     st.session_state['ai_insight'] = None  # Reset AI insight for new prediction
                 except Exception as e:
